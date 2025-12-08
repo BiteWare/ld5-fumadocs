@@ -3,8 +3,6 @@ title: Frontend Architecture
 description: Next.js App Router application with batch-first CSV processing UI
 ---
 
-# LeadDesk 5 – Frontend Architecture
-
 ## Overview
 LeadDesk 5 (LD5) moves from single‑practice processing to a batch‑only system. The frontend is a dedicated Next.js App Router application that manages CSV upload, job creation, practice-level status tracking, and CSV export of aggregated enrichment data.
 
@@ -73,7 +71,7 @@ Handles:
 
 ### `ExportCsvButton`
 - Enabled only on `completed`
-- Downloads using `/api/jobs/{id}/export`
+- Downloads using `/api/jobs/\{id\}/export`
 
 ---
 
@@ -97,5 +95,5 @@ Provides:
 2. Frontend calls **POST /api/jobs**.
 3. Backend creates job + practices.
 4. Page redirects to job detail.
-5. Polling fetches **GET /api/jobs/{id}**.
-6. Final CSV exported from **GET /api/jobs/{id}/export**.
+5. Polling fetches **GET /api/jobs/\{id\}**.
+6. Final CSV exported from **GET /api/jobs/\{id\}/export**.

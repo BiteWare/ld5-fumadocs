@@ -87,9 +87,9 @@ Handles:
 Multi-format export dropdown component:
 - Enabled only on `completed`
 - Dropdown with three options:
-  - Export as CSV → `/api/jobs/{id}/export`
-  - Export as Excel → `/api/jobs/{id}/export-excel`
-  - Export as JSON → `/api/jobs/{id}/export-json`
+  - Export as CSV → `/api/jobs/\{id\}/export`
+  - Export as Excel → `/api/jobs/\{id\}/export-excel`
+  - Export as JSON → `/api/jobs/\{id\}/export-json`
 
 ---
 
@@ -147,5 +147,5 @@ Provides:
 2. Frontend calls **POST /api/jobs**.
 3. Backend creates job + practices.
 4. Page redirects to job detail.
-5. Polling fetches **GET /api/jobs/{id}**.
-6. Final CSV exported from **GET /api/jobs/{id}/export**.
+5. Polling fetches **GET /api/jobs/\{id\}**.
+6. Final CSV exported from **GET /api/jobs/\{id\}/export**.

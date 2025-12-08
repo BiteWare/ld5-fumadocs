@@ -3,14 +3,12 @@ title: API Documentation
 description: REST API endpoints for LeadDesk 5 batch processing and exports
 ---
 
-# LeadDesk 5 – API Documentation
-
 ## Summary
 LD5 exposes 4 REST endpoints to manage batch processing and exports.
 
 ---
 
-# POST /api/jobs
+## POST /api/jobs
 Upload CSV → create job.
 
 ### Response
@@ -20,12 +18,12 @@ Upload CSV → create job.
 
 ---
 
-# GET /api/jobs
+## GET /api/jobs
 Return authenticated user jobs.
 
 ---
 
-# GET /api/jobs/{id}
+## GET /api/jobs/\{id\}
 Return:
 - job metadata
 - practices array
@@ -34,7 +32,7 @@ Used for frontend polling.
 
 ---
 
-# GET /api/jobs/{id}/export
+## GET /api/jobs/\{id\}/export
 Returns a CSV with:
 - practice_identifier
 - status
