@@ -1,0 +1,104 @@
+---
+title: "Quickstart"
+description: "Process your first batch enrichment job in minutes"
+---
+
+## Get started with LeadDesk 5
+
+Follow these steps to upload your first CSV and monitor the enrichment process.
+
+### Step 1: Prepare Your CSV
+
+Create a CSV file with practice identifiers (URLs or IDs), one per line.
+
+```csv
+practice_identifier
+https://example-practice1.com
+https://example-practice2.com
+https://example-practice3.com
+```
+
+Each row should contain a practice website URL or unique identifier.
+
+### Step 2: Upload Your Batch
+
+
+  
+    Go to `/jobs/new` in the LeadDesk 5 interface.
+  
+  
+  
+    Drag and drop your CSV file or click to browse. The system will validate and preview the first 5 rows.
+  
+  
+  
+    Click "Create Job" to start processing. You'll be redirected to the job detail page.
+  
+
+
+### Step 3: Monitor Progress
+
+The job detail page automatically polls for updates every 3 seconds.
+
+You'll see:
+- **Job Status** - Overall job state (pending → running → completed)
+- **Progress Bar** - Visual representation of completion
+- **Practice Table** - Individual practice status and errors
+
+
+  Polling stops automatically when the job reaches `completed` or `error` status.
+
+
+### Step 4: Export Results
+
+Once the job is complete:
+
+1. Click the **Export CSV** button on the job detail page
+2. Download your enriched data with all aggregated fields
+3. Review practice results including any errors
+
+## What Happens Behind the Scenes
+
+
+  
+    Your CSV is parsed and stored in the `enrichment_jobs` and `job_practices` tables.
+  
+  
+  
+    The n8n Dispatcher workflow is triggered to process practices in batches.
+  
+  
+  
+    Three workers handle URL normalization, scraping, and data aggregation.
+  
+  
+  
+    Database triggers automatically update job progress and status.
+  
+
+
+## Next Steps
+
+
+
+
+  Learn how LeadDesk 5 is built
+
+
+
+  Integrate with the REST API
+
+
+
+  Understand the data model
+
+
+
+  Explore n8n worker architecture
+
+
+
+
+
+  **Need help?** Contact support@zyris.com for assistance.
+

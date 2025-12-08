@@ -1,0 +1,311 @@
+---
+title: 'Submit to LeadDesk Dispatcher'
+description: 'Submit single practice to external LeadDesk dispatcher'
+---
+
+# Submit to LeadDesk Dispatcher
+
+Submit a single practice to the external LeadDesk dispatcher for immediate processing outside the batch workflow.
+
+## Endpoint
+
+```
+POST /api/submit-leaddesk
+```
+
+## Authentication
+
+Required. Cookie-based authentication with Supabase.
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `practice_data` | object | Yes | Practice information to submit |
+| `practice_identifier` | string | Yes | Practice URL or identifier |
+| `user_email` | string | No | User email for notifications |
+
+### Example Request
+```json
+{
+  "practice_identifier": "https://example-dental.com",
+  "practice_data": {
+    "name": "Example Dental Practice",
+    "address": "123 Main St, Anytown, CA",
+    "phone": "(555) 123-4567"
+  },
+  "user_email": "user@example.com"
+}
+```
+
+## Response
+
+### Success (200 OK)
+
+```json
+{
+  "success": true,
+  "execution_id": "webhook_exec_123456",
+  "message": "Practice submitted to LeadDesk dispatcher",
+  "status": "dispatched"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success status |
+| `execution_id` | string | n8n execution ID |
+| `message` | string | Success message |
+| `status` | string | Dispatch status |
+
+### Error Responses
+
+#### 401 Unauthorized
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required"
+}
+```
+
+#### 400 Bad Request
+```json
+{
+  "error": "Bad Request",
+  "message": "practice_identifier is required"
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to submit to dispatcher"
+}
+```
+
+#### 503 Service Unavailable
+```json
+{
+  "error": "Service Unavailable",
+  "message": "LeadDesk dispatcher is not available"
+}
+```
+
+---
+
+## Workflow
+
+1. **Validate Input**: Checks required fields
+2. **Call Webhook**: POSTs to `LEADDESK_DISPATCHER_WEBHOOK_URL`
+3. **External Processing**: LeadDesk dispatcher handles enrichment
+4. **Return Status**: Returns execution ID for tracking
+
+---
+
+## Differences from Search-Practices
+
+| Feature | `/api/search-practices` | `/api/submit-leaddesk` |
+|---------|------------------------|------------------------|
+| **Workflow** | LD5 batch pipeline | External LeadDesk dispatcher |
+| **Creates Job** | Yes | No |
+| **Tracking** | Via job ID | Via execution ID |
+| **Database** | Stores in LD5 tables | External system |
+| **Export** | Available | Not available |
+| **Use Case** | Single practice enrichment | External integration |
+
+---
+
+## Example Usage
+
+### JavaScript/TypeScript
+```typescript
+async function submitToLeadDesk(identifier: string, data?: any) {
+  const response = await fetch('/api/submit-leaddesk', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      practice_identifier: identifier,
+      practice_data: data,
+      user_email: 'user@example.com',
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message);
+  }
+  
+  const result = await response.json();
+  console.log(`Submitted with execution ID: ${result.execution_id}`);
+  
+  return result;
+}
+```
+
+### React Component
+```typescript
+import { useState } from 'react';
+
+function LeadDeskSubmit() {
+  const [identifier, setIdentifier] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const response = await fetch('/api/submit-leaddesk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          practice_identifier: identifier,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setResult(data);
+        alert(`Submitted! Execution ID: ${data.execution_id}`);
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      alert('Failed to submit to LeadDesk');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="Enter practice URL"
+          required
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? 'Submitting...' : 'Submit to LeadDesk'}
+        </button>
+      </form>
+      
+      {result && (
+        <div>
+          <p>Status: {result.status}</p>
+          <p>Execution ID: {result.execution_id}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### cURL
+```bash
+curl -X POST \
+  'https://your-domain.com/api/submit-leaddesk' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: sb-access-token=...' \
+  -d '{
+    "practice_identifier": "https://example-dental.com",
+    "practice_data": {
+      "name": "Example Dental",
+      "address": "123 Main St"
+    }
+  }'
+```
+
+---
+
+## External Dispatcher
+
+### Webhook URL
+Configured via environment variable:
+```env
+LEADDESK_DISPATCHER_WEBHOOK_URL=https://n8n.example.com/webhook/leaddesk-dispatcher
+```
+
+### Payload Sent
+```json
+{
+  "practice_identifier": "https://example-dental.com",
+  "practice_data": {...},
+  "user_email": "user@example.com",
+  "submitted_at": "2025-12-08T10:00:00Z",
+  "source": "LD5"
+}
+```
+
+---
+
+## Use Cases
+
+### Immediate Processing
+- Single practice needs urgent enrichment
+- Bypass batch queue
+- Real-time results required
+
+### External Integration
+- Forward to different enrichment system
+- Custom processing pipeline
+- Third-party service integration
+
+### Testing
+- Test external dispatcher
+- Validate integration
+- Debug workflow issues
+
+---
+
+## Environment Variables
+
+```env
+LEADDESK_DISPATCHER_WEBHOOK_URL=https://n8n.example.com/webhook/leaddesk-dispatcher
+```
+
+Required for endpoint to function. Returns 503 if not configured.
+
+---
+
+## Related Endpoints
+
+
+
+
+  Search and submit via LD5 pipeline
+
+
+
+  Upload CSV for batch processing
+
+
+
+  View all user jobs
+
+
+
+  Fetch user emails
+
+
+
+
+---
+
+## Notes
+
+- Does **not** create job in LD5 database
+- Results handled by external system
+- No export functionality (use `/api/search-practices` for that)
+- Requires `LEADDESK_DISPATCHER_WEBHOOK_URL` to be configured
+- Suitable for single-practice, immediate processing needs
+- Execution ID can be used to track in n8n interface

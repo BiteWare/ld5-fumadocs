@@ -1,0 +1,104 @@
+---
+title: 'Workflow Engine'
+description: 'n8n workflow architecture for async batch processing'
+---
+
+# LeadDesk 5 – n8n Workflow Architecture
+
+## Overview
+LD5 uses three worker workflows + one dispatcher, triggered via `LD5_DISPATCHER_WEBHOOK_URL`.
+
+---
+
+## 1. Batch Dispatcher Workflow
+
+**Triggered by:** `POST /api/jobs` via `LD5_DISPATCHER_WEBHOOK_URL`
+
+**Input:** job_id, practices array
+
+### Nodes:
+1. Webhook — Receive trigger from API
+2. Code — Extract job_id and practices
+3. Loop — Iterate practices
+4. HTTP Request — Trigger URL Worker per practice
+5. Supabase — Update job status to `running`
+
+**Output:** Triggers URL Worker for each practice
+
+---
+
+## 2. URL Worker
+
+**Input:**
+```json
+{
+  "job_id": "...",
+  "practice_id": "...",
+  "practice_identifier": "..."
+}
+```
+
+**Responsibilities:**
+- Normalize & validate URL
+- Deduplicate
+- Sanitize fields
+
+**Output:**
+- Updates `job_practices.url_worker_payload`
+- Updates `job_practices.status` → `url_complete`
+- Triggers Scraper Worker
+
+---
+
+## 3. Scraper Worker
+
+**Input:** job_id, practice_id, url_worker_payload
+
+**Responsibilities:**
+- Perform web scraping
+- Extract practice metadata
+- Structure enrichment data
+
+**Output:**
+- Updates `job_practices.scraper_worker_payload`
+- Updates `job_practices.status` → `scraped`
+- Triggers Aggregator
+
+---
+
+## 4. Batch Aggregator
+
+**Input:** job_id, practice_id
+
+**Responsibilities:**
+- Merge url_worker_payload + scraper_worker_payload
+- Write final_payload
+- Increment completed_practices on job
+- Check if all practices done → mark job completed
+
+**Output:**
+- Updates `job_practices.final_payload`
+- Updates `job_practices.status` → `aggregated`
+- Updates `enrichment_jobs.completed_practices`
+- Updates `enrichment_jobs.status` → `completed` (when all done)
+
+---
+
+## Error Handling
+
+**Practice-level errors:**
+- Set `job_practices.status` → `error`
+- Set `job_practices.error_message`
+- Continue processing other practices
+
+**Job-level errors:**
+- Set `enrichment_jobs.status` → `error`
+- Set `enrichment_jobs.error_message`
+
+**Workflow errors:**
+- Log to `failed_jobs` table
+- Include workflow ID, execution ID, input data, stack trace
+
+**Redo logic:**
+- `redo-job` resets error practices to pending
+- Re-triggers dispatcher for failed practices only

@@ -1,0 +1,278 @@
+---
+title: 'Export Formats'
+description: 'CSV, Excel, and JSON export options for enriched practice data'
+---
+
+# Export Formats
+
+## Overview
+
+LeadDesk 5 provides three export formats for enriched practice data, each suited for different use cases.
+
+
+
+
+  Standard comma-separated format for spreadsheets
+
+
+
+  Formatted .xlsx workbook with styling
+
+
+
+  Raw structured data for programmatic access
+
+
+
+
+---
+
+## CSV Export
+
+### Format
+Standard comma-separated values (CSV) file.
+
+### Features
+- **20 columns** of enriched data
+- Header row with column names
+- UTF-8 encoding
+- Proper CSV escaping for special characters
+- Compatible with Excel, Google Sheets, and other tools
+
+### Use Cases
+- Import into CRM systems
+- Data analysis in spreadsheet tools
+- Bulk processing with scripts
+- Integration with existing workflows
+
+### File Naming
+`job_{job_id}_export.csv`
+
+### Endpoint
+```
+GET /api/jobs/[id]/export
+```
+
+### Example Output
+```csv
+Company Name,Shipping Address,Shipping City,Shipping State,Shipping Zip,Phone Number,Practice URL,Practice Email,Primary Specialty,All Specialties,Person In Charge,Person In Charge Credentials,Dentist Count,Hygienist Count,Total Staff,Location Count,Works Multiple Locations,Staff Directory,All Locations,Scrape Notes
+"Example Dental","123 Main St","Anytown","CA","12345","(555) 123-4567","https://example-dental.com","info@example.com","General Dentistry","General Dentistry; Cosmetic","Dr. John Smith (Owner)","DDS","1","1","2","1","false","Dr. John Smith - DDS\nJane Doe - RDH","Location 1:\n  123 Main St, Anytown, CA 12345\n  Phone: (555) 123-4567","Successfully extracted"
+```
+
+---
+
+## Excel Export
+
+### Format
+Microsoft Excel workbook (.xlsx format).
+
+### Features
+- **20 columns** of enriched data
+- Formatted header row (bold, colored background)
+- Auto-sized columns for optimal width
+- Proper cell formatting for different data types
+- Multiple sheets support (future enhancement)
+
+### Use Cases
+- Professional reports and presentations
+- Data analysis with Excel features
+- Sharing with non-technical stakeholders
+- Creating formatted deliverables
+
+### File Naming
+`job_{job_id}_export.xlsx`
+
+### Endpoint
+```
+GET /api/jobs/[id]/export-excel
+```
+
+### Technical Details
+- Uses `xlsx` library (SheetJS)
+- Generated server-side
+- Binary file download
+- Same data structure as CSV export
+
+### Excel-Specific Features
+- Cell wrapping for multi-line content
+- Number formatting for counts
+- Boolean formatting for flags
+- Date formatting (if applicable)
+
+---
+
+## JSON Export
+
+### Format
+Raw JSON array containing practice data.
+
+### Features
+- Complete `final_payload` structure
+- Nested objects and arrays preserved
+- All enrichment and validation data included
+- Machine-readable format
+
+### Use Cases
+- API integrations
+- Custom data processing
+- Debugging and validation
+- Programmatic data access
+- Backup and archival
+
+### File Naming
+`job_{job_id}_export.json`
+
+### Endpoint
+```
+GET /api/jobs/[id]/export-json
+```
+
+### Example Output
+```json
+[
+  {
+    "practice_id": "12345",
+    "practice_identifier": "https://example-dental.com",
+    "status": "aggregated",
+    "final_payload": {
+      "result": [{
+        "homepage_url": "https://example-dental.com",
+        "validated_address": "123 Main St, Anytown, CA 12345"
+      }],
+      "1": {
+        "practice_name": "Example Dental Practice",
+        "phone": "(555) 123-4567",
+        "email": "info@example-dental.com",
+        "practice_specialties": ["General Dentistry", "Cosmetic"],
+        "staff_list": [
+          {
+            "name": "Dr. John Smith",
+            "role": "DDS",
+            "credentials": "DDS"
+          },
+          {
+            "name": "Jane Doe",
+            "role": "RDH"
+          }
+        ],
+        "locations": [{
+          "address": {
+            "street": "123 Main St",
+            "city": "Anytown",
+            "state": "CA",
+            "zip": "12345"
+          },
+          "phone": "(555) 123-4567"
+        }],
+        "person_in_charge": {
+          "name": "Dr. John Smith",
+          "credentials": "DDS",
+          "role": "Owner"
+        },
+        "works_multiple_locations": false,
+        "scraping_notes": "Successfully extracted"
+      }
+    },
+    "created_at": "2025-12-08T10:00:00Z",
+    "updated_at": "2025-12-08T10:05:00Z"
+  }
+]
+```
+
+---
+
+## Format Comparison
+
+| Feature | CSV | Excel | JSON |
+|---------|-----|-------|------|
+| **Human Readable** | ✓ | ✓✓ | △ |
+| **Machine Readable** | ✓ | ✓ | ✓✓ |
+| **File Size** | Small | Medium | Large |
+| **Formatting** | None | ✓✓ | None |
+| **Nested Data** | Flattened | Flattened | Preserved |
+| **Compatibility** | Universal | Microsoft/LibreOffice | Programming |
+| **Processing Speed** | Fast | Medium | Fast |
+
+Legend: ✓✓ = Excellent, ✓ = Good, △ = Limited
+
+---
+
+## Data Consistency
+
+All three export formats contain the **same enriched practice data**, extracted using the `extractPracticeData()` function:
+
+- 20 standardized columns
+- Validation + enrichment data merged
+- Consistent field priority rules
+- Same error handling
+
+The only differences are:
+- **Format/structure** (flat vs nested)
+- **File type** and compatibility
+- **Presentation** (formatting vs raw)
+
+---
+
+## Performance Considerations
+
+### CSV Export
+- **Fastest** to generate
+- Smallest file size
+- Low memory usage
+
+### Excel Export
+- **Medium** generation time
+- Larger file size than CSV
+- Uses xlsx library for formatting
+
+### JSON Export
+- **Fast** to generate
+- Largest file size (includes all nested data)
+- No formatting overhead
+
+---
+
+## Choosing the Right Format
+
+### Choose CSV when:
+- Importing into CRM or database
+- Working with spreadsheet tools
+- Need smallest file size
+- Require universal compatibility
+
+### Choose Excel when:
+- Creating professional reports
+- Sharing with business stakeholders
+- Need formatted, readable output
+- Working primarily in Microsoft Office
+
+### Choose JSON when:
+- Building API integrations
+- Custom data processing required
+- Need complete data structure
+- Debugging or validation
+- Archiving raw enrichment results
+
+---
+
+## Related Documentation
+
+
+
+
+  Learn how practice data is extracted and merged
+
+
+
+  CSV export endpoint documentation
+
+
+
+  Excel export endpoint documentation
+
+
+
+  JSON export endpoint documentation
+
+
+

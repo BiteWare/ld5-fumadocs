@@ -1,0 +1,233 @@
+---
+title: 'Local Development'
+description: 'Set up your development environment for LeadDesk 5'
+---
+
+## Prerequisites
+
+
+  Before getting started, ensure you have:
+  - Node.js version 19 or higher
+  - Git installed
+  - Access to Supabase project credentials
+  - n8n instance (for workflow testing)
+
+
+## Environment Setup
+
+
+
+
+```bash
+git clone https://github.com/zyris/leaddesk5.git
+cd leaddesk5
+```
+
+
+
+
+```bash
+npm install
+```
+
+
+
+
+Create a `.env.local` file in the root directory:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# n8n
+LD5_DISPATCHER_WEBHOOK_URL=https://your-n8n-instance.com/webhook/dispatcher
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+
+
+
+Run the Supabase migrations:
+
+```bash
+npx supabase db push
+```
+
+This will create:
+- `enrichment_jobs` table
+- `job_practices` table
+- RLS policies
+- Database triggers
+- Indexes
+
+
+
+
+```bash
+npm run dev
+```
+
+Your app will be available at `http://localhost:3000`
+
+
+
+## Database Management
+
+### Local Supabase
+
+For a fully local development environment:
+
+```bash
+npx supabase start
+```
+
+This starts local Postgres, Studio, and APIs.
+
+### Migrations
+
+Create a new migration:
+
+```bash
+npx supabase migration new migration_name
+```
+
+Apply migrations:
+
+```bash
+npx supabase db push
+```
+
+## Testing Workflows
+
+### n8n Setup
+
+1. Deploy the dispatcher workflow
+2. Deploy worker workflows (URL, Scraper, Aggregator)
+3. Update webhook URLs in `.env.local`
+
+### Testing Jobs
+
+```bash
+# Upload test CSV
+curl -X POST http://localhost:3000/api/jobs \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@test-practices.csv"
+```
+
+## Development Tools
+
+### Supabase Studio
+
+Access at `http://localhost:54323` (if using local Supabase) to:
+- View table data
+- Test RLS policies
+- Monitor real-time changes
+- Execute SQL queries
+
+### API Testing
+
+Use the provided Postman collection or test with curl:
+
+```bash
+# List jobs
+curl http://localhost:3000/api/jobs \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Get job details
+curl http://localhost:3000/api/jobs/{job_id} \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Code Formatting
+
+We use ESLint and Prettier for code formatting:
+
+```bash
+npm run lint
+npm run format
+```
+
+### VSCode Extensions
+
+Recommended extensions:
+- [MDX](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) - MDX syntax highlighting
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) - Code formatting
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) - Linting
+
+## Documentation Development
+
+To preview these docs locally:
+
+
+
+
+```bash
+npm i -g mint
+```
+
+
+
+
+```bash
+cd LeadDeskDocs
+```
+
+
+
+
+```bash
+mint dev
+```
+
+Documentation will be available at `http://localhost:3000`
+
+
+
+## Troubleshooting
+
+
+  
+    Verify your Supabase credentials in `.env.local` and ensure the project is active.
+  
+
+  
+    Check that:
+    - n8n workflows are active
+    - Webhook URLs are correct
+    - n8n instance is accessible from your dev environment
+  
+
+  
+    Ensure you're using a valid Supabase JWT token and RLS policies are properly configured.
+  
+
+  
+    Change the dev port: `npm run dev -- -p 3001`
+  
+
+
+## Next Steps
+
+
+
+
+  Understand the Next.js structure
+
+
+
+  Explore API route implementation
+
+
+
+  Learn the data model
+
+
+
+  Test API endpoints
+
+
+

@@ -1,0 +1,201 @@
+---
+title: 'Backend Architecture'
+description: 'Next.js API routes with Supabase and n8n integration'
+---
+
+# LeadDesk 5 – Backend Architecture
+
+## Overview
+The backend is implemented using **Next.js API routes**, Supabase client-side authentication, Postgres (via Supabase), and n8n as the async workflow engine.
+
+All endpoints use cookie-based auth and RLS-safe Supabase server client.
+
+---
+
+## API Endpoints
+
+### POST /api/jobs
+Creates a batch job from an uploaded CSV.
+
+**Responsibilities:**
+- Accepts CSV upload
+- Creates `enrichment_jobs` record
+- Creates `job_practices` records
+- Triggers Dispatcher webhook via `LD5_DISPATCHER_WEBHOOK_URL`
+- Returns `{ job_id, total_practices }`
+
+---
+
+### GET /api/jobs
+Returns user's jobs list.
+
+**Supports:**
+- RLS-based isolation
+- Sorting by `created_at`
+
+---
+
+### GET /api/jobs/{id}
+Returns job detail with practice statuses.
+
+**Used for:**
+- Frontend polling to track job progress
+- Displaying real-time practice status
+
+---
+
+### GET /api/jobs/{id}/export
+Generates CSV from final_payload data.
+
+**Features:**
+- RLS ensures owner-only access
+- Flattens `final_payload` fields
+- Includes status and error information
+- Exports 20 columns with validation + enrichment data merged
+
+---
+
+### GET /api/jobs/{id}/export-excel
+Exports job data as Excel (.xlsx) file.
+
+**Features:**
+- Same data as CSV export in Excel format
+- Formatted headers and auto-sized columns
+- 20 columns of enriched practice data
+- RLS ensures owner-only access
+
+---
+
+### GET /api/jobs/{id}/export-json
+Exports raw JSON data from final_payload.
+
+**Features:**
+- Unprocessed final_payload data
+- Useful for programmatic access
+- Includes full nested structures
+- RLS ensures owner-only access
+
+---
+
+### POST /api/search-practices
+Search for practice and submit to enrichment.
+
+**Parameters:** `practice_identifier`
+
+**Action:**
+- Searches for practice
+- Creates job and triggers workflow
+- Returns `job_id`
+
+---
+
+### GET /api/get-job-users
+Fetches user emails for job assignment.
+
+**Returns:** List of user emails
+
+---
+
+### POST /api/submit-leaddesk
+Submit single practice to external dispatcher.
+
+**Parameters:** Practice data
+
+**Action:**
+- Uses `LEADDESK_DISPATCHER_WEBHOOK_URL`
+- Single practice processing (not batch)
+- Returns execution status
+
+---
+
+### POST /api/kill-job
+Cancels a running job.
+
+**Parameters:** `job_id`
+
+**Action:** Sets job status to `error`
+
+---
+
+### POST /api/redo-job
+Retries failed practices in a job.
+
+**Parameters:** `job_id`
+
+**Action:**
+- Resets `error` practices to `pending` in DB
+- Re-triggers dispatcher for failed practices only
+
+---
+
+### GET /api/check-job-status
+Checks current job progress.
+
+**Parameters:** `job_id`
+
+**Returns:** Practice counts by status
+
+---
+
+### POST /api/save-excluded-job
+Saves exclusion data for a job.
+
+**Uses:** LD5 tables for exclusion logic
+
+---
+
+## Supabase Integration
+Backend uses:
+- `supabase.auth.getUser()` for user resolution
+- Row Level Security for scoping jobs/practices
+- SQL triggers for job rollup counters
+- JSONB storage for worker payloads
+- Cookie-based auth with `createServerClient()`
+
+---
+
+## n8n Integration
+Backend triggers the dispatcher:
+```json
+POST ${LD5_DISPATCHER_WEBHOOK_URL}
+{
+  "job_id": "...",
+  "practices": [...]
+}
+```
+
+Workers call back to update practice status:
+```javascript
+supabase.from('job_practices')
+  .update({ status, payloads, error_message })
+  .eq('id', practice_id)
+```
+
+Triggers automatically update:
+- job status (pending → running → completed/error)
+- completed_practices count
+- updated_at timestamp
+
+---
+
+## Authentication
+
+Cookie-based auth exclusively:
+- Frontend: `createBrowserClient()`
+- API routes: `createServerClient()`
+- All requests include `credentials: "include"`
+- RLS policies enforce user isolation
+
+---
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| LD5_DISPATCHER_WEBHOOK_URL | n8n batch job dispatcher trigger URL |
+| LEADDESK_DISPATCHER_WEBHOOK_URL | n8n single practice dispatcher trigger URL |
+| SUPABASE_URL | Supabase project URL |
+| SUPABASE_ANON_KEY | Public key for frontend |
+| SUPABASE_SERVICE_ROLE_KEY | Service key for n8n |
+| NEXT_PUBLIC_SUPABASE_URL | Public Supabase URL for client |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Public anon key for client |

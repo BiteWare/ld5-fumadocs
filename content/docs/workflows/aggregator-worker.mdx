@@ -1,0 +1,311 @@
+---
+title: 'Aggregator Worker'
+description: 'Final data aggregation and enrichment'
+---
+
+# Aggregator Worker
+
+## Purpose
+
+The Aggregator Worker combines outputs from URL Worker and Scraper Worker into a final enriched payload.
+
+## Input
+
+Receives practice ID from Scraper Worker:
+
+```json
+{
+  "practice_id": 1
+}
+```
+
+## Processing Steps
+
+
+  
+    Query Supabase for complete practice record
+    - URL worker payload
+    - Scraper worker payload
+    - Original identifier
+  
+  
+  
+    Combine all data sources into unified structure
+    - Resolve conflicts
+    - Fill missing fields
+    - Normalize formats
+  
+  
+  
+    Add computed fields and metadata
+    - Data quality score
+    - Completeness percentage
+    - Confidence levels
+  
+  
+  
+    Write final payload to Supabase
+    - Store `final_payload`
+    - Set status to `aggregated`
+    - Trigger job completion check
+  
+
+
+## Implementation
+
+### Fetch Practice Data
+
+```javascript
+// Supabase node: Get practice
+{
+  "table": "job_practices",
+  "operation": "get",
+  "filter": {
+    "id": "{{ $json.practice_id }}"
+  },
+  "select": "*, url_worker_payload, scraper_worker_payload"
+}
+```
+
+### Data Merging
+
+```javascript
+// Function node: Merge payloads
+function mergeData(practice) {
+  const urlData = practice.url_worker_payload || {};
+  const scraperData = practice.scraper_worker_payload || {};
+  
+  return {
+    // Core identification
+    practice_identifier: practice.practice_identifier,
+    practice_name: scraperData.practice_name || null,
+    
+    // Contact info
+    website: urlData.final_url || urlData.normalized_url,
+    phone: scraperData.phone || null,
+    email: scraperData.email || null,
+    
+    // Location
+    address: scraperData.address || null,
+    
+    // Additional details
+    specialty: scraperData.specialty || null,
+    provider_count: scraperData.provider_count || null,
+    office_hours: scraperData.office_hours || null,
+    
+    // Metadata
+    domain: urlData.domain,
+    status_code: urlData.status_code,
+    response_time_ms: urlData.response_time_ms,
+    
+    // Timestamps
+    url_processed_at: urlData.processed_at,
+    scraped_at: scraperData.scraped_at
+  };
+}
+
+const practice = $input.first().json;
+return [{
+  json: {
+    practice_id: practice.id,
+    merged_data: mergeData(practice)
+  }
+}];
+```
+
+### Data Enrichment
+
+```javascript
+// Function node: Calculate quality scores
+function enrichData(data) {
+  // Required fields for quality calculation
+  const requiredFields = [
+    'practice_name',
+    'phone',
+    'email',
+    'address',
+    'website'
+  ];
+  
+  // Calculate completeness
+  const filledFields = requiredFields.filter(field => data[field]);
+  const completeness = (filledFields.length / requiredFields.length) * 100;
+  
+  // Determine quality score
+  let quality_score = 'low';
+  if (completeness >= 80) quality_score = 'high';
+  else if (completeness >= 50) quality_score = 'medium';
+  
+  // Add enrichment metadata
+  return {
+    ...data,
+    enrichment_metadata: {
+      completeness_percentage: completeness,
+      quality_score: quality_score,
+      fields_filled: filledFields.length,
+      fields_missing: requiredFields.length - filledFields.length,
+      enriched_at: new Date().toISOString()
+    }
+  };
+}
+
+const merged = $input.first().json.merged_data;
+return [{
+  json: {
+    practice_id: $input.first().json.practice_id,
+    final_payload: enrichData(merged)
+  }
+}];
+```
+
+### Supabase Update
+
+```javascript
+// Supabase node: Update with final payload
+{
+  "table": "job_practices",
+  "operation": "update",
+  "matchOn": ["id"],
+  "data": {
+    "id": "{{ $json.practice_id }}",
+    "final_payload": "{{ $json.final_payload }}",
+    "status": "aggregated",
+    "updated_at": "{{ $now }}"
+  }
+}
+```
+
+## Output
+
+The `final_payload` contains:
+
+```json
+{
+  "practice_identifier": "https://example-practice.com",
+  "practice_name": "Example Medical Practice",
+  "website": "https://www.example-practice.com",
+  "phone": "(555) 123-4567",
+  "email": "contact@example-practice.com",
+  "address": "123 Main Street, City, ST 12345",
+  "specialty": "Family Medicine",
+  "provider_count": 5,
+  "office_hours": "Mon-Fri 8AM-5PM",
+  "domain": "example-practice.com",
+  "status_code": 200,
+  "response_time_ms": 342,
+  "url_processed_at": "2025-01-15T10:30:00Z",
+  "scraped_at": "2025-01-15T10:32:00Z",
+  "enrichment_metadata": {
+    "completeness_percentage": 100,
+    "quality_score": "high",
+    "fields_filled": 5,
+    "fields_missing": 0,
+    "enriched_at": "2025-01-15T10:33:00Z"
+  }
+}
+```
+
+## Data Quality Scoring
+
+### Quality Levels
+
+| Score | Completeness | Description |
+|-------|--------------|-------------|
+| High | 80-100% | All critical fields present |
+| Medium | 50-79% | Most fields present |
+| Low | 0-49% | Limited data extracted |
+
+### Field Priorities
+
+**Critical** (required for "high" score):
+- practice_name
+- phone
+- address
+
+**Important** (required for "medium" score):
+- email
+- website
+
+**Optional** (nice to have):
+- specialty
+- provider_count
+- office_hours
+
+## Error Handling
+
+If merging fails:
+
+```javascript
+// Error handler
+if (!data.practice_name && !data.phone) {
+  return [{
+    json: {
+      practice_id: practice_id,
+      status: 'error',
+      error_message: 'Insufficient data for aggregation',
+      final_payload: null
+    }
+  }];
+}
+```
+
+## Job Completion Trigger
+
+Database triggers automatically handle job completion:
+
+1. When practice status → `aggregated`
+2. Increment `completed_practices` count
+3. If `completed_practices` == `total_practices`
+4. Set job status → `completed`
+
+No manual workflow trigger needed!
+
+## Performance
+
+- **Processing time**: less than 100ms per practice
+- **Database operations**: 2 queries (read + write)
+- **Memory usage**: Minimal (in-memory merge only)
+- **Scalability**: Can handle 1000+ practices/job
+
+## Monitoring
+
+Track these metrics:
+
+- **Aggregation success rate**: % of practices reaching `aggregated`
+- **Average quality score**: Distribution across high/medium/low
+- **Completeness**: Average percentage per job
+- **Processing time**: End-to-end duration per practice
+
+## Testing
+
+Test aggregation:
+
+```bash
+curl -X POST https://your-n8n-instance.com/webhook/aggregator \
+  -H "Content-Type: application/json" \
+  -d '{
+    "practice_id": 1
+  }'
+```
+
+## Next Steps
+
+
+
+
+  Download enriched CSV
+
+
+
+  Understand data structure
+
+
+
+  Monitor enrichment quality
+
+
+
+  Review complete workflow
+
+
+

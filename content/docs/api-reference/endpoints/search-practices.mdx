@@ -1,0 +1,278 @@
+---
+title: 'Search and Submit Practice'
+description: 'Search for a practice and submit to enrichment workflow'
+---
+
+# Search and Submit Practice
+
+Search for a specific practice and submit it to the enrichment workflow as a single-practice job.
+
+## Endpoint
+
+```
+POST /api/search-practices
+```
+
+## Authentication
+
+Required. Cookie-based authentication with Supabase.
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `practice_identifier` | string | Yes | Practice URL or identifier to enrich |
+
+### Example Request
+```json
+{
+  "practice_identifier": "https://example-dental.com"
+}
+```
+
+## Response
+
+### Success (200 OK)
+
+```json
+{
+  "success": true,
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "practice_id": "12345",
+  "message": "Practice submitted for enrichment"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success status |
+| `job_id` | string (UUID) | Created job ID |
+| `practice_id` | string | Practice record ID |
+| `message` | string | Success message |
+
+### Error Responses
+
+#### 401 Unauthorized
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required"
+}
+```
+
+#### 400 Bad Request
+```json
+{
+  "error": "Bad Request",
+  "message": "practice_identifier is required"
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to create job"
+}
+```
+
+---
+
+## Workflow
+
+1. **Create Job**: Creates `enrichment_jobs` record with single practice
+2. **Create Practice**: Creates `job_practices` record with status `pending`
+3. **Trigger Dispatcher**: Calls `LD5_DISPATCHER_WEBHOOK_URL` to start enrichment
+4. **Return Job ID**: Returns job ID for tracking
+
+---
+
+## Example Usage
+
+### JavaScript/TypeScript
+```typescript
+async function searchAndSubmitPractice(identifier: string) {
+  const response = await fetch('/api/search-practices', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      practice_identifier: identifier,
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message);
+  }
+  
+  const result = await response.json();
+  console.log(`Job created: ${result.job_id}`);
+  
+  // Redirect to job detail page
+  window.location.href = `/jobs/${result.job_id}`;
+  
+  return result;
+}
+```
+
+### React Component
+```typescript
+import { useState } from 'react';
+
+function PracticeSearch() {
+  const [identifier, setIdentifier] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const response = await fetch('/api/search-practices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ practice_identifier: identifier }),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        // Redirect to job page
+        window.location.href = `/jobs/${result.job_id}`;
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('Failed to submit practice');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={identifier}
+        onChange={(e) => setIdentifier(e.target.value)}
+        placeholder="Enter practice URL or identifier"
+        required
+      />
+      <button type="submit" disabled={loading}>
+        {loading ? 'Submitting...' : 'Search & Submit'}
+      </button>
+    </form>
+  );
+}
+```
+
+### cURL
+```bash
+curl -X POST \
+  'https://your-domain.com/api/search-practices' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: sb-access-token=...' \
+  -d '{
+    "practice_identifier": "https://example-dental.com"
+  }'
+```
+
+---
+
+## Practice Identifier Format
+
+Accepts various identifier formats:
+
+- **Full URL**: `https://example-dental.com`
+- **Domain**: `example-dental.com`
+- **URL with path**: `https://example-dental.com/about`
+- **Practice name**: Converted to search query
+
+---
+
+## Job Creation
+
+Creates a single-practice job:
+
+- **Job status**: `pending`
+- **Total practices**: `1`
+- **Original filename**: `Single Practice: {identifier}`
+- **User ID**: Current authenticated user
+
+---
+
+## Tracking Progress
+
+After submission, track the job:
+
+```typescript
+async function trackJobProgress(jobId: string) {
+  const response = await fetch(`/api/jobs/${jobId}`, {
+    credentials: 'include',
+  });
+  
+  const job = await response.json();
+  
+  console.log('Status:', job.status);
+  console.log('Progress:', job.completed_practices, '/', job.total_practices);
+  
+  return job;
+}
+```
+
+Use `useJobPolling` hook for automatic updates:
+
+```typescript
+import { useJobPolling } from '@/hooks/use-job-polling';
+
+function JobTracker({ jobId }: { jobId: string }) {
+  const { job, loading } = useJobPolling(jobId, 3000);
+  
+  if (loading) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h2>Job Status: {job.status}</h2>
+      <p>Progress: {job.completed_practices} / {job.total_practices}</p>
+    </div>
+  );
+}
+```
+
+---
+
+## Related Endpoints
+
+
+
+
+  Upload CSV for batch processing
+
+
+
+  Submit to external dispatcher
+
+
+
+  Retrieve job information
+
+
+
+  View all user jobs
+
+
+
+
+---
+
+## Notes
+
+- Creates a job with single practice for individual enrichment
+- Uses same enrichment pipeline as batch jobs
+- Job can be tracked using standard job endpoints
+- Supports same export formats (CSV, Excel, JSON)
+- Subject to same RLS policies as batch jobs

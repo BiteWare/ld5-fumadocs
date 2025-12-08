@@ -1,0 +1,218 @@
+---
+title: 'Export Job as Excel'
+description: 'Download enriched practice data as Excel workbook'
+---
+
+# Export Job as Excel
+
+Export a completed enrichment job as a formatted Excel (.xlsx) workbook.
+
+## Endpoint
+
+```
+GET /api/jobs/{id}/export-excel
+```
+
+## Authentication
+
+Required. Cookie-based authentication with Supabase.
+
+## Parameters
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string (UUID) | Yes | Job ID to export |
+
+## Response
+
+### Success (200 OK)
+
+Returns an Excel (.xlsx) file with enriched practice data.
+
+**Headers:**
+```
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="job_{job_id}_export.xlsx"
+```
+
+**Body:** Binary Excel file
+
+### Error Responses
+
+#### 401 Unauthorized
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required"
+}
+```
+
+#### 404 Not Found
+```json
+{
+  "error": "Not Found",
+  "message": "Job not found or access denied"
+}
+```
+
+#### 400 Bad Request
+```json
+{
+  "error": "Bad Request",
+  "message": "Job must be in completed status"
+}
+```
+
+---
+
+## Excel Format
+
+### Sheet Structure
+- **Sheet Name:** "Enriched Practices"
+- **Header Row:** Row 1 with formatted headers (bold, colored background)
+- **Data Rows:** One row per practice, starting from row 2
+
+### Column Details (20 Columns)
+
+| Column | Header | Width | Format |
+|--------|--------|-------|--------|
+| A | Company Name | 30 | Text |
+| B | Shipping Address | 35 | Text |
+| C | Shipping City | 20 | Text |
+| D | Shipping State | 10 | Text |
+| E | Shipping Zip | 12 | Text |
+| F | Phone Number | 18 | Text |
+| G | Practice URL | 40 | Hyperlink |
+| H | Practice Email | 30 | Email |
+| I | Primary Specialty | 25 | Text |
+| J | All Specialties | 40 | Text (wrapped) |
+| K | Person In Charge | 30 | Text |
+| L | Person In Charge Credentials | 15 | Text |
+| M | Dentist Count | 12 | Number |
+| N | Hygienist Count | 15 | Number |
+| O | Total Staff | 12 | Number |
+| P | Location Count | 15 | Number |
+| Q | Works Multiple Locations | 20 | Boolean |
+| R | Staff Directory | 50 | Text (wrapped) |
+| S | All Locations | 50 | Text (wrapped) |
+| T | Scrape Notes | 50 | Text (wrapped) |
+
+### Formatting Features
+- **Auto-sized columns** for optimal readability
+- **Text wrapping** for multi-line content
+- **Bold headers** with background color
+- **Freeze panes** on header row
+- **Number formatting** for count columns
+
+---
+
+## Example Usage
+
+### JavaScript/TypeScript
+```typescript
+async function downloadExcelExport(jobId: string) {
+  const response = await fetch(`/api/jobs/${jobId}/export-excel`, {
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Export failed');
+  }
+  
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `job_${jobId}_export.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+```
+
+### cURL
+```bash
+curl -X GET \
+  'https://your-domain.com/api/jobs/550e8400-e29b-41d4-a716-446655440000/export-excel' \
+  -H 'Cookie: sb-access-token=...' \
+  --output export.xlsx
+```
+
+---
+
+## Data Extraction
+
+Excel export uses the same `extractPracticeData()` function as CSV export, ensuring:
+
+- **Consistent data** across all export formats
+- **Validation + enrichment merge** with priority rules
+- **20 standardized columns** with proper formatting
+- **Error handling** for missing or invalid data
+
+See [Data Extraction](/architecture/data-extraction) for detailed field mapping and priority rules.
+
+---
+
+## Technical Details
+
+### Library
+Uses `xlsx` (SheetJS) library for Excel generation.
+
+### Generation Process
+1. Fetch job with all practices from database
+2. Extract and merge practice data
+3. Create workbook with formatted sheet
+4. Apply styling and formatting
+5. Generate binary .xlsx file
+6. Stream to client
+
+### Performance
+- Handles jobs with hundreds of practices
+- Server-side generation
+- Streaming response for large files
+
+---
+
+## Row Level Security
+
+Export endpoint enforces RLS policies:
+- Users can only export their own jobs
+- `user_id = auth.uid()` check via Supabase
+- Returns 404 if job doesn't belong to authenticated user
+
+---
+
+## Related Endpoints
+
+
+
+
+  Export job data as CSV file
+
+
+
+  Export raw JSON data
+
+
+
+  Retrieve job information
+
+
+
+  View all user jobs
+
+
+
+
+---
+
+## Notes
+
+- Job must be in `completed` status to export
+- Export includes all practices, including those with errors
+- Error practices have empty fields where data extraction failed
+- File naming convention: `job_{uuid}_export.xlsx`
+- Compatible with Microsoft Excel 2007+ and LibreOffice Calc

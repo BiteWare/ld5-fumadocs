@@ -1,0 +1,202 @@
+---
+title: 'Data Extraction & Merging'
+description: 'How practice data is extracted and merged from validation and enrichment sources'
+---
+
+# Data Extraction & Merging
+
+## Overview
+
+The `extractPracticeData()` function merges data from two sources in the `final_payload` to create comprehensive practice records for export.
+
+---
+
+## Data Sources
+
+### VALIDATION Source
+- Location: `final_payload.result[]` array
+- Contains: URL/address validation results
+- Fields: `homepage_url`, `website_url`, `validated_address`, `corrected_address`, validation notes
+
+### ENRICHMENT Source
+- Location: `final_payload[numbered keys]` (e.g., "1", "2", "3")
+- Contains: Detailed practice data from web scraper
+- Fields: Full practice details including staff, locations, specialties, contact information
+
+---
+
+## Field Priority Rules
+
+When both sources contain data for the same field, priority is determined as follows:
+
+| Field | Source Priority |
+|-------|-----------------|
+| **Practice URL** | validation.homepage_url → validation.website_url → enrichment.resulting_url |
+| **Address** | validation.corrected_address → validation.validated_address → enrichment.address |
+| **Practice Name** | validation → enrichment |
+| **Phone** | enrichment → validation |
+| **Email** | enrichment only |
+| **Specialties** | enrichment only |
+| **Staff Data** | enrichment only |
+| **Person In Charge** | enrichment only |
+| **Scrape Notes** | validation note + enrichment notes (concatenated) |
+
+---
+
+## CSV/Excel Column Mapping
+
+The export generates **20 columns** from the merged data:
+
+| Column # | Column Name | Source Field |
+|----------|-------------|--------------|
+| 1 | Company Name | `practice_name` |
+| 2 | Shipping Address | `locations[0].address.street` |
+| 3 | Shipping City | `locations[0].address.city` |
+| 4 | Shipping State | `locations[0].address.state` |
+| 5 | Shipping Zip | `locations[0].address.zip` |
+| 6 | Phone Number | `phone` |
+| 7 | Practice URL | `resulting_url` |
+| 8 | Practice Email | `email` |
+| 9 | Primary Specialty | `practice_specialties[0]` |
+| 10 | All Specialties | `practice_specialties.join('; ')` |
+| 11 | Person In Charge | `person_in_charge.name (role)` |
+| 12 | Person In Charge Credentials | `person_in_charge.credentials` |
+| 13 | Dentist Count | Count staff with DDS/DMD/Dentist in role |
+| 14 | Hygienist Count | Count staff with RDH/Hygienist in role |
+| 15 | Total Staff | `staff_list.length` |
+| 16 | Location Count | `locations.length` |
+| 17 | Works Multiple Locations | `works_multiple_locations` (boolean) |
+| 18 | Staff Directory | `staff_list` formatted as "name - role" |
+| 19 | All Locations | `locations` formatted with address/phone |
+| 20 | Scrape Notes | validation notes + enrichment notes |
+
+---
+
+## Staff Counting Logic
+
+### Dentist Count
+Counts staff members where the role contains:
+- "DDS"
+- "DMD"
+- "Dentist"
+- Case-insensitive matching
+
+### Hygienist Count
+Counts staff members where the role contains:
+- "RDH"
+- "Hygienist"
+- Case-insensitive matching
+
+### Total Staff
+Total count of all members in `staff_list` array.
+
+---
+
+## Location Aggregation
+
+### Primary Location
+`locations[0]` is used for the main address fields (columns 2-5).
+
+### All Locations Format
+Formatted as multi-line string:
+```
+Location 1:
+  123 Main St, City, ST 12345
+  Phone: (555) 123-4567
+
+Location 2:
+  456 Oak Ave, Town, ST 67890
+  Phone: (555) 987-6543
+```
+
+---
+
+## Notes Concatenation
+
+Scrape notes combine two sources:
+
+1. **Validation Note**: Any notes from URL/address validation
+2. **Enrichment Notes**: Scraping notes from enrichment process
+
+Format: `[Validation: {note}] [Enrichment: {note}]`
+
+If only one source has notes, only that note is included.
+
+---
+
+## Example Data Flow
+
+```javascript
+// Input: final_payload
+{
+  "result": [{
+    "homepage_url": "https://example-dental.com",
+    "validated_address": "123 Main St, City, ST 12345",
+    "note": "Address confirmed"
+  }],
+  "1": {
+    "practice_name": "Example Dental Practice",
+    "phone": "(555) 123-4567",
+    "email": "info@example-dental.com",
+    "practice_specialties": ["General Dentistry", "Cosmetic"],
+    "staff_list": [
+      { "name": "Dr. John Smith", "role": "DDS" },
+      { "name": "Jane Doe", "role": "RDH" }
+    ],
+    "locations": [{
+      "address": {
+        "street": "123 Main St",
+        "city": "City",
+        "state": "ST",
+        "zip": "12345"
+      },
+      "phone": "(555) 123-4567"
+    }],
+    "person_in_charge": {
+      "name": "Dr. John Smith",
+      "credentials": "DDS",
+      "role": "Owner"
+    },
+    "scraping_notes": "Successfully extracted"
+  }
+}
+
+// Output: CSV Row
+Company Name: Example Dental Practice
+Shipping Address: 123 Main St
+Shipping City: City
+Shipping State: ST
+Shipping Zip: 12345
+Phone Number: (555) 123-4567
+Practice URL: https://example-dental.com
+Practice Email: info@example-dental.com
+Primary Specialty: General Dentistry
+All Specialties: General Dentistry; Cosmetic
+Person In Charge: Dr. John Smith (Owner)
+Person In Charge Credentials: DDS
+Dentist Count: 1
+Hygienist Count: 1
+Total Staff: 2
+Location Count: 1
+Works Multiple Locations: false
+Staff Directory: Dr. John Smith - DDS\nJane Doe - RDH
+All Locations: Location 1:\n  123 Main St, City, ST 12345\n  Phone: (555) 123-4567
+Scrape Notes: [Validation: Address confirmed] [Enrichment: Successfully extracted]
+```
+
+---
+
+## Error Handling
+
+- **Missing Fields**: Empty string or "N/A" for missing data
+- **Invalid Data**: Logged but doesn't halt export
+- **Null Values**: Converted to empty strings
+- **Array Fields**: Safely handled with null checks
+
+---
+
+## Related Documentation
+
+- [Export Formats](/architecture/export-formats) - Details on CSV, Excel, and JSON exports
+- [Export Job API](/api-reference/endpoints/export-job) - CSV export endpoint
+- [Export Excel API](/api-reference/endpoints/export-excel) - Excel export endpoint

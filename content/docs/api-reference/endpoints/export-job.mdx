@@ -1,0 +1,94 @@
+---
+title: 'Export Job Results'
+api: 'GET /api/jobs/{id}/export'
+description: 'Download enriched data as a CSV file'
+---
+
+## Request
+
+### Headers
+```
+Authorization: Bearer <supabase-token>
+```
+
+### Path Parameters
+
+  Job UUID
+
+
+## Response
+
+Returns a CSV file with **20 standardized columns** containing enriched practice data merged from validation and enrichment sources.
+
+### CSV Columns (20 Total)
+
+| Column # | Column Name | Source Field | Description |
+|----------|-------------|--------------|-------------|
+| 1 | Company Name | `practice_name` | Practice business name |
+| 2 | Shipping Address | `locations[0].address.street` | Primary location street address |
+| 3 | Shipping City | `locations[0].address.city` | Primary location city |
+| 4 | Shipping State | `locations[0].address.state` | Primary location state |
+| 5 | Shipping Zip | `locations[0].address.zip` | Primary location ZIP code |
+| 6 | Phone Number | `phone` | Primary contact phone |
+| 7 | Practice URL | `resulting_url` | Validated practice website |
+| 8 | Practice Email | `email` | Practice email address |
+| 9 | Primary Specialty | `practice_specialties[0]` | Main specialty |
+| 10 | All Specialties | `practice_specialties.join('; ')` | All specialties (semicolon-separated) |
+| 11 | Person In Charge | `person_in_charge.name (role)` | Key contact with role |
+| 12 | Person In Charge Credentials | `person_in_charge.credentials` | Contact credentials (DDS, DMD, etc.) |
+| 13 | Dentist Count | Calculated | Count of staff with DDS/DMD/Dentist role |
+| 14 | Hygienist Count | Calculated | Count of staff with RDH/Hygienist role |
+| 15 | Total Staff | `staff_list.length` | Total number of staff |
+| 16 | Location Count | `locations.length` | Number of practice locations |
+| 17 | Works Multiple Locations | `works_multiple_locations` | Boolean flag |
+| 18 | Staff Directory | `staff_list` formatted | All staff as "name - role" (line-separated) |
+| 19 | All Locations | `locations` formatted | All locations with address/phone |
+| 20 | Scrape Notes | Combined notes | Validation + enrichment notes |
+
+### CSV Format Example
+```csv
+Company Name,Shipping Address,Shipping City,Shipping State,Shipping Zip,Phone Number,Practice URL,Practice Email,Primary Specialty,All Specialties,Person In Charge,Person In Charge Credentials,Dentist Count,Hygienist Count,Total Staff,Location Count,Works Multiple Locations,Staff Directory,All Locations,Scrape Notes
+"Example Dental Practice","123 Main St","Anytown","CA","12345","(555) 123-4567","https://example-dental.com","info@example.com","General Dentistry","General Dentistry; Cosmetic","Dr. John Smith (Owner)","DDS","1","1","2","1","false","Dr. John Smith - DDS
+Jane Doe - RDH","Location 1:
+  123 Main St, Anytown, CA 12345
+  Phone: (555) 123-4567","Successfully extracted"
+```
+
+### Data Extraction
+
+Data is merged from two sources using the `extractPracticeData()` function:
+
+**VALIDATION Source** (`result[]` array):
+- URL/address validation results
+- Fields: `homepage_url`, `website_url`, `validated_address`, `corrected_address`
+
+**ENRICHMENT Source** (numbered keys like "1", "2"):
+- Detailed practice data from web scraper
+- Fields: Full practice details including staff, locations, specialties
+
+**Field Priority Rules**:
+- Practice URL: validation.homepage_url → validation.website_url → enrichment.resulting_url
+- Address: validation.corrected_address → validation.validated_address → enrichment.address
+- Phone: enrichment → validation
+- All other fields: enrichment source
+
+See [Data Extraction](/architecture/data-extraction) for complete field priority and merging logic.
+
+## Example Request
+
+```bash
+curl -X GET http://localhost:3000/api/jobs/550e8400-e29b-41d4-a716-446655440000/export \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN" \
+  -o enriched_practices.csv
+```
+
+## Usage
+
+This endpoint is used to:
+- Download completed job results
+- Export enriched practice data for analysis
+- Integrate results into other systems
+
+
+  The export button is only enabled in the UI when the job status is `completed`.
+

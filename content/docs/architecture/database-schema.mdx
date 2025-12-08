@@ -1,0 +1,133 @@
+---
+title: 'Database Schema'
+description: 'Supabase tables, RLS policies, and triggers'
+---
+
+# LeadDesk 5 – Supabase Architecture
+
+## Tables
+
+---
+
+## `enrichment_jobs`
+Top-level job record created on CSV upload.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| user_id | uuid | FK → users |
+| original_filename | text | Uploaded CSV name |
+| total_practices | int | Count of practices |
+| completed_practices | int | Finished count |
+| status | text | pending / running / completed / error |
+| error_message | text | Job-level error |
+| created_at | timestamp | |
+| updated_at | timestamp | |
+
+### Job Status Values
+
+| Status | Meaning |
+|--------|---------|
+| pending | Job created, no practices started |
+| running | At least one practice in progress |
+| completed | All practices finished |
+| error | Job-level failure |
+
+---
+
+## `job_practices`
+Individual practice records within a job.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigserial | PK |
+| job_id | uuid | FK → enrichment_jobs |
+| practice_identifier | text | URL or identifier |
+| status | text | pending / url_complete / scraped / aggregated / error |
+| url_worker_payload | jsonb | Output from URL worker |
+| scraper_worker_payload | jsonb | Output from Scraper worker |
+| final_payload | jsonb | Merged final data |
+| error_message | text | Practice-level error |
+| created_at | timestamp | |
+| updated_at | timestamp | |
+
+### Practice Status Values
+
+| Status | Meaning |
+|--------|---------|
+| pending | Queued, not started |
+| url_complete | URL worker finished |
+| scraped | Scraper worker finished |
+| aggregated | Aggregator finished (terminal) |
+| error | Failed at any stage (terminal) |
+
+---
+
+## `failed_jobs`
+Workflow-level error logging for debugging.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigserial | PK |
+| failed_workflow_id | text | n8n workflow ID |
+| failed_workflow_name | text | Workflow name |
+| failed_execution_id | text | n8n execution ID |
+| error_message | text | Error description |
+| error_stack | text | Stack trace |
+| original_input_data | jsonb | Input that caused failure |
+| status | text | Status of the failure record |
+| logged_at | timestamp | |
+
+---
+
+## `users`
+User accounts for authentication.
+
+| Column | Type |
+|--------|------|
+| id | uuid |
+| email | text |
+| password_hash | text |
+| name | text |
+| created_at | timestamp |
+| updated_at | timestamp |
+
+---
+
+## RLS Policies
+- Users may only access their own `enrichment_jobs`
+- Users may only access `job_practices` for owned jobs
+- All API routes use cookie-based auth with RLS-safe Supabase server client
+
+---
+
+## Triggers
+
+Supabase database triggers automatically manage job state:
+
+### `update_enrichment_job_updated_at()`
+- Updates `updated_at` timestamp on job modifications
+- Triggered on any UPDATE to `enrichment_jobs` table
+
+### `update_completed_practices_counter()`
+- Increments `completed_practices` when practice reaches terminal state
+- Triggered when `job_practices.status` changes to `aggregated` or `error`
+
+### `update_job_status()`
+- Auto-updates job status based on completion:
+  - `pending` → `running` (when first practice starts)
+  - `running` → `completed` (when all practices finish successfully)
+  - `running` → `error` (when appropriate based on practice failures)
+- Triggered on practice status changes
+
+### Migration File
+Database schema defined in: `migrations/001_create_batch_tables.sql`
+
+---
+
+## Indexes
+- job_practices(job_id)
+- job_practices(status)
+- enrichment_jobs(user_id)
+- enrichment_jobs(created_at)
+- job_practices(job_id, status) WHERE status='aggregated'

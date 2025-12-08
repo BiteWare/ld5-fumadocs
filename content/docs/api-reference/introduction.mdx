@@ -1,0 +1,81 @@
+---
+title: 'API Introduction'
+description: 'REST API for batch practice enrichment'
+---
+
+# LeadDesk 5 API
+
+## Overview
+
+The LeadDesk 5 API provides REST endpoints for managing batch enrichment jobs. Upload a CSV of practice identifiers, track processing progress in real-time, and export enriched data.
+
+## Base URL
+
+```
+https://leaddesk.zyris.com/api
+```
+
+For local development:
+```
+http://localhost:3000/api
+```
+
+## Authentication
+
+All API endpoints require authentication using a Supabase JWT token.
+
+Include the token in the Authorization header:
+
+```
+Authorization: Bearer YOUR_SUPABASE_TOKEN
+```
+
+## Rate Limits
+
+- API requests are scoped to authenticated users via Row Level Security (RLS)
+- No hard rate limits, but bulk operations should use batch endpoints
+
+## Response Format
+
+All API responses use JSON format (except CSV exports).
+
+### Success Response
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "total_practices": 94
+}
+```
+
+### Error Response
+```json
+{
+  "error": "Invalid CSV format",
+  "details": "Missing required columns"
+}
+```
+
+## Workflow
+
+1. **Upload CSV** - POST `/api/jobs` with a CSV file
+2. **Monitor Progress** - Poll GET `/api/jobs/{id}` every 3 seconds
+3. **Export Results** - GET `/api/jobs/{id}/export` when status is `completed`
+
+## Job Statuses
+
+- `pending` - Job created, no practices started
+- `running` - At least one practice in progress
+- `completed` - All practices finished
+- `error` - Job-level failure
+
+## Practice Statuses
+
+- `pending` - Awaiting processing
+- `url_complete` - URL normalized and validated
+- `scraped` - Practice data extracted
+- `aggregated` - Final enrichment complete
+- `error` - Processing failed
+
+## Support
+
+For API support, contact: support@zyris.com

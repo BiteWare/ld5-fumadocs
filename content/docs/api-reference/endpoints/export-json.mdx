@@ -1,0 +1,394 @@
+---
+title: 'Export Job as JSON'
+description: 'Download raw practice data in JSON format'
+---
+
+# Export Job as JSON
+
+Export a completed enrichment job as raw JSON data with complete practice structures.
+
+## Endpoint
+
+```
+GET /api/jobs/{id}/export-json
+```
+
+## Authentication
+
+Required. Cookie-based authentication with Supabase.
+
+## Parameters
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string (UUID) | Yes | Job ID to export |
+
+## Response
+
+### Success (200 OK)
+
+Returns a JSON array containing practice data with complete `final_payload` structures.
+
+**Headers:**
+```
+Content-Type: application/json
+Content-Disposition: attachment; filename="job_{job_id}_export.json"
+```
+
+**Body Structure:**
+```json
+[
+  {
+    "practice_id": "string",
+    "practice_identifier": "string",
+    "status": "string",
+    "final_payload": {
+      "result": [...],
+      "1": {...},
+      "2": {...}
+    },
+    "error_message": "string | null",
+    "created_at": "timestamp",
+    "updated_at": "timestamp"
+  }
+]
+```
+
+### Error Responses
+
+#### 401 Unauthorized
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required"
+}
+```
+
+#### 404 Not Found
+```json
+{
+  "error": "Not Found",
+  "message": "Job not found or access denied"
+}
+```
+
+#### 400 Bad Request
+```json
+{
+  "error": "Bad Request",
+  "message": "Job must be in completed status"
+}
+```
+
+---
+
+## Response Schema
+
+### Practice Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `practice_id` | string | Practice database ID |
+| `practice_identifier` | string | Original URL or identifier |
+| `status` | string | Practice status (aggregated/error) |
+| `final_payload` | object | Complete enrichment data |
+| `error_message` | string \| null | Error details if failed |
+| `created_at` | string | ISO 8601 timestamp |
+| `updated_at` | string | ISO 8601 timestamp |
+
+### Final Payload Structure
+
+```json
+{
+  "result": [
+    {
+      "homepage_url": "string",
+      "website_url": "string",
+      "validated_address": "string",
+      "corrected_address": "string",
+      "note": "string"
+    }
+  ],
+  "1": {
+    "practice_name": "string",
+    "phone": "string",
+    "email": "string",
+    "resulting_url": "string",
+    "practice_specialties": ["string"],
+    "staff_list": [
+      {
+        "name": "string",
+        "role": "string",
+        "credentials": "string"
+      }
+    ],
+    "locations": [
+      {
+        "address": {
+          "street": "string",
+          "city": "string",
+          "state": "string",
+          "zip": "string"
+        },
+        "phone": "string"
+      }
+    ],
+    "person_in_charge": {
+      "name": "string",
+      "credentials": "string",
+      "role": "string"
+    },
+    "works_multiple_locations": "boolean",
+    "scraping_notes": "string"
+  }
+}
+```
+
+---
+
+## Example Response
+
+```json
+[
+  {
+    "practice_id": "12345",
+    "practice_identifier": "https://example-dental.com",
+    "status": "aggregated",
+    "final_payload": {
+      "result": [
+        {
+          "homepage_url": "https://example-dental.com",
+          "validated_address": "123 Main St, Anytown, CA 12345",
+          "note": "Address validated successfully"
+        }
+      ],
+      "1": {
+        "practice_name": "Example Dental Practice",
+        "phone": "(555) 123-4567",
+        "email": "info@example-dental.com",
+        "resulting_url": "https://example-dental.com",
+        "practice_specialties": [
+          "General Dentistry",
+          "Cosmetic Dentistry"
+        ],
+        "staff_list": [
+          {
+            "name": "Dr. John Smith",
+            "role": "DDS",
+            "credentials": "DDS"
+          },
+          {
+            "name": "Jane Doe",
+            "role": "Hygienist",
+            "credentials": "RDH"
+          }
+        ],
+        "locations": [
+          {
+            "address": {
+              "street": "123 Main St",
+              "city": "Anytown",
+              "state": "CA",
+              "zip": "12345"
+            },
+            "phone": "(555) 123-4567"
+          }
+        ],
+        "person_in_charge": {
+          "name": "Dr. John Smith",
+          "credentials": "DDS",
+          "role": "Owner"
+        },
+        "works_multiple_locations": false,
+        "scraping_notes": "Successfully extracted practice information"
+      }
+    },
+    "error_message": null,
+    "created_at": "2025-12-08T10:00:00.000Z",
+    "updated_at": "2025-12-08T10:05:30.000Z"
+  },
+  {
+    "practice_id": "12346",
+    "practice_identifier": "https://another-practice.com",
+    "status": "error",
+    "final_payload": {},
+    "error_message": "Failed to scrape: Website timeout",
+    "created_at": "2025-12-08T10:00:01.000Z",
+    "updated_at": "2025-12-08T10:03:00.000Z"
+  }
+]
+```
+
+---
+
+## Example Usage
+
+### JavaScript/TypeScript
+```typescript
+async function downloadJsonExport(jobId: string) {
+  const response = await fetch(`/api/jobs/${jobId}/export-json`, {
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Export failed');
+  }
+  
+  const practices = await response.json();
+  
+  // Save to file
+  const blob = new Blob([JSON.stringify(practices, null, 2)], {
+    type: 'application/json',
+  });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `job_${jobId}_export.json`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  
+  return practices;
+}
+```
+
+### Process JSON Data
+```typescript
+async function processPractices(jobId: string) {
+  const practices = await fetch(`/api/jobs/${jobId}/export-json`, {
+    credentials: 'include',
+  }).then(r => r.json());
+  
+  // Filter successful practices
+  const successful = practices.filter(p => p.status === 'aggregated');
+  
+  // Extract specific data
+  const emails = successful
+    .map(p => p.final_payload?.['1']?.email)
+    .filter(Boolean);
+  
+  // Count staff across all practices
+  const totalStaff = successful.reduce((sum, p) => {
+    return sum + (p.final_payload?.['1']?.staff_list?.length || 0);
+  }, 0);
+  
+  return { successful, emails, totalStaff };
+}
+```
+
+### cURL
+```bash
+curl -X GET \
+  'https://your-domain.com/api/jobs/550e8400-e29b-41d4-a716-446655440000/export-json' \
+  -H 'Cookie: sb-access-token=...' \
+  --output export.json
+```
+
+### Python
+```python
+import requests
+import json
+
+def export_json(job_id, session_cookie):
+    url = f'https://your-domain.com/api/jobs/{job_id}/export-json'
+    headers = {'Cookie': session_cookie}
+    
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    
+    practices = response.json()
+    
+    # Save to file
+    with open(f'job_{job_id}_export.json', 'w') as f:
+        json.dump(practices, f, indent=2)
+    
+    return practices
+```
+
+---
+
+## Use Cases
+
+### API Integration
+Perfect for programmatic access to enriched data:
+- Custom data processing pipelines
+- Integration with other systems
+- Automated workflows
+
+### Data Analysis
+Complete structure for analysis:
+- Extract specific nested fields
+- Aggregate statistics
+- Custom transformations
+
+### Debugging
+Full data visibility:
+- Inspect raw enrichment results
+- Validate data extraction
+- Troubleshoot issues
+
+### Archival
+Complete data preservation:
+- Backup enrichment results
+- Historical data storage
+- Audit trail
+
+---
+
+## Advantages Over CSV/Excel
+
+| Feature | JSON | CSV/Excel |
+|---------|------|-----------|
+| **Nested Data** | ✓ Preserved | × Flattened |
+| **Full Structure** | ✓ Complete | × Simplified |
+| **Programmatic Access** | ✓ Easy | △ Parsing needed |
+| **Data Types** | ✓ Preserved | × All strings |
+| **Arrays** | ✓ Native | × Concatenated |
+| **File Size** | Larger | Smaller |
+
+---
+
+## Row Level Security
+
+Export endpoint enforces RLS policies:
+- Users can only export their own jobs
+- `user_id = auth.uid()` check via Supabase
+- Returns 404 if job doesn't belong to authenticated user
+
+---
+
+## Related Endpoints
+
+
+
+
+  Export job data as CSV file
+
+
+
+  Export formatted Excel workbook
+
+
+
+  Retrieve job information
+
+
+
+  View all user jobs
+
+
+
+
+---
+
+## Notes
+
+- Job must be in `completed` status to export
+- Includes all practices regardless of status
+- Error practices have empty `final_payload` objects
+- File naming convention: `job_{uuid}_export.json`
+- Pretty-printed JSON with 2-space indentation
+- UTF-8 encoding

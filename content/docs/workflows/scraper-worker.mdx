@@ -1,0 +1,292 @@
+---
+title: 'Scraper Worker'
+description: 'Practice data extraction using OpenAI'
+---
+
+# Scraper Worker
+
+## Purpose
+
+The Scraper Worker extracts structured practice data from websites using OpenAI's API.
+
+## Input
+
+Receives individual practices from URL Worker:
+
+```json
+{
+  "practice_id": 1,
+  "url": "https://example-practice.com"
+}
+```
+
+## Processing Steps
+
+
+  
+    Retrieve HTML from the normalized URL
+  
+  
+  
+    Parse HTML and extract relevant text content
+    - Remove scripts and styles
+    - Focus on main content areas
+    - Clean whitespace
+  
+  
+  
+    Use OpenAI to extract structured data
+    - Practice name
+    - Phone number
+    - Address
+    - Email
+    - Other metadata
+  
+  
+  
+    Write results to Supabase
+    - Store `scraper_worker_payload`
+    - Set status to `scraped`
+    - Trigger Aggregator Worker
+  
+
+
+## Implementation
+
+### Fetch Page Content
+
+```javascript
+// HTTP Request node: Fetch webpage
+{
+  "method": "GET",
+  "url": "{{ $json.url }}",
+  "timeout": 10000,
+  "options": {
+    "headers": {
+      "User-Agent": "LeadDesk-Bot/5.0"
+    }
+  }
+}
+```
+
+### HTML Parsing
+
+```javascript
+// Function node: Parse HTML
+const cheerio = require('cheerio');
+
+function extractContent(html) {
+  const $ = cheerio.load(html);
+  
+  // Remove unwanted elements
+  $('script, style, nav, footer, iframe').remove();
+  
+  // Extract main content
+  const mainContent = $('main, article, .content, #content').text() || $('body').text();
+  
+  // Clean and truncate
+  return mainContent
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 5000); // Limit to 5000 chars
+}
+
+const html = $input.first().json.body;
+return [{
+  json: {
+    practice_id: $input.first().json.practice_id,
+    url: $input.first().json.url,
+    content: extractContent(html)
+  }
+}];
+```
+
+### OpenAI Extraction
+
+```javascript
+// OpenAI node: Extract structured data
+{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Extract practice information from the following webpage content. Return JSON with fields: practice_name, phone, email, address, specialty, website."
+    },
+    {
+      "role": "user",
+      "content": "{{ $json.content }}"
+    }
+  ],
+  "temperature": 0.1,
+  "response_format": { "type": "json_object" }
+}
+```
+
+### Supabase Update
+
+```javascript
+// Supabase node: Update practice
+{
+  "table": "job_practices",
+  "operation": "update",
+  "matchOn": ["id"],
+  "data": {
+    "id": "{{ $json.practice_id }}",
+    "scraper_worker_payload": {
+      "practice_name": "{{ $json.practice_name }}",
+      "phone": "{{ $json.phone }}",
+      "email": "{{ $json.email }}",
+      "address": "{{ $json.address }}",
+      "specialty": "{{ $json.specialty }}",
+      "website": "{{ $json.website }}",
+      "scraped_at": "{{ $now }}"
+    },
+    "status": "scraped"
+  }
+}
+```
+
+## Output
+
+The `scraper_worker_payload` contains:
+
+```json
+{
+  "practice_name": "Example Medical Practice",
+  "phone": "(555) 123-4567",
+  "email": "contact@example-practice.com",
+  "address": "123 Main Street, City, ST 12345",
+  "specialty": "Family Medicine",
+  "website": "https://example-practice.com",
+  "provider_count": 5,
+  "office_hours": "Mon-Fri 8AM-5PM",
+  "scraped_at": "2025-01-15T10:32:00Z"
+}
+```
+
+## OpenAI Prompt Engineering
+
+### Extraction Prompt
+
+```
+Extract the following information from this medical practice website:
+
+Required fields:
+- practice_name: Official name of the practice
+- phone: Primary phone number (format: (XXX) XXX-XXXX)
+- address: Full street address including city, state, zip
+- email: Contact email address
+
+Optional fields:
+- specialty: Medical specialty or practice type
+- website: Official website URL
+- provider_count: Number of doctors/providers
+- office_hours: Business hours
+
+Return valid JSON only. Use null for missing fields.
+```
+
+### Response Validation
+
+```javascript
+// Function node: Validate OpenAI response
+function validateResponse(data) {
+  const required = ['practice_name', 'phone', 'address'];
+  const missing = required.filter(field => !data[field]);
+  
+  if (missing.length > 0) {
+    return {
+      error: `Missing required fields: ${missing.join(', ')}`,
+      partial_data: data
+    };
+  }
+  
+  return { valid: true, data };
+}
+```
+
+## Error Handling
+
+Common errors:
+
+| Error | Cause | Action |
+|-------|-------|--------|
+| Fetch timeout | Site unreachable | Retry 3 times |
+| 404/403 | Page not found/blocked | Mark as error |
+| OpenAI error | API failure | Retry with backoff |
+| Parse error | Invalid HTML | Log and continue |
+| Missing data | Incomplete extraction | Mark as partial |
+
+```javascript
+// Error handler node
+if ($json.error) {
+  return [{
+    json: {
+      practice_id: $json.practice_id,
+      status: 'error',
+      error_message: $json.error,
+      scraper_worker_payload: $json.partial_data || {}
+    }
+  }];
+}
+```
+
+## Rate Limiting
+
+To avoid overload:
+
+- **Max concurrent requests**: 10
+- **Delay between OpenAI calls**: 200ms
+- **Retry backoff**: 1s, 2s, 5s
+- **Daily API quota**: Monitor usage
+
+## Cost Optimization
+
+Reduce OpenAI costs:
+
+1. **Content truncation**: Limit to 5000 chars
+2. **Model selection**: Use `gpt-4o-mini` for simple extractions
+3. **Caching**: Store common patterns
+4. **Batch processing**: Group similar sites
+
+## Next Worker Trigger
+
+On success, trigger the Aggregator Worker:
+
+```javascript
+// HTTP Request node: Trigger aggregator
+{
+  "method": "POST",
+  "url": "{{ $env.N8N_AGGREGATOR_WEBHOOK }}",
+  "body": {
+    "practice_id": "{{ $json.practice_id }}"
+  }
+}
+```
+
+## Testing
+
+Test scraping locally:
+
+```bash
+curl -X POST https://your-n8n-instance.com/webhook/scraper \
+  -H "Content-Type: application/json" \
+  -d '{
+    "practice_id": 1,
+    "url": "https://example-practice.com"
+  }'
+```
+
+## Next Steps
+
+
+
+
+  Combine data into final payload
+
+
+
+  Optimize prompt engineering
+
+
+

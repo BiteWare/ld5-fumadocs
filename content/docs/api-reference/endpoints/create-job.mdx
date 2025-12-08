@@ -1,0 +1,46 @@
+---
+title: 'Create Job'
+api: 'POST /api/jobs'
+description: 'Upload a CSV file to create a new batch enrichment job'
+---
+
+## Request
+
+Upload a CSV file containing practice identifiers or URLs.
+
+### Headers
+```
+Authorization: Bearer <supabase-token>
+Content-Type: multipart/form-data
+```
+
+### Body Parameters
+
+  CSV file containing practice identifiers (one per row)
+
+
+## Response
+
+
+  UUID of the created job
+
+
+
+  Number of practices in the uploaded CSV
+
+
+### Example Response
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "total_practices": 94
+}
+```
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:3000/api/jobs \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN" \
+  -F "file=@practices.csv"
+```

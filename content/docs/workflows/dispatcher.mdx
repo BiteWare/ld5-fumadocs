@@ -1,0 +1,165 @@
+---
+title: 'Dispatcher Workflow'
+description: 'Job distribution and batch coordination'
+---
+
+# Dispatcher Workflow
+
+## Purpose
+
+The Dispatcher workflow receives new enrichment jobs and distributes practices to worker workflows in optimized batches.
+
+## Trigger
+
+The dispatcher is triggered via webhook when a new job is created:
+
+```json
+POST ${N8N_DISPATCHER_WEBHOOK}
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "practice_count": 94
+}
+```
+
+## Workflow Steps
+
+
+  
+    Webhook receives job_id and practice_count from backend
+  
+  
+  
+    Set job status to `running` in Supabase
+  
+  
+  
+    Query all practices for the job from `job_practices` table
+  
+  
+  
+    Chunk practices into groups of 10-25 for parallel processing
+  
+  
+  
+    Call URL Worker webhook for each batch
+  
+
+
+## Implementation
+
+### Webhook Configuration
+
+```javascript
+// Webhook node settings
+{
+  "httpMethod": "POST",
+  "path": "/webhook/dispatcher",
+  "responseMode": "responseNode"
+}
+```
+
+### Supabase Query
+
+```sql
+-- Fetch all pending practices for the job
+SELECT id, practice_identifier
+FROM job_practices
+WHERE job_id = '{{ $json.job_id }}'
+  AND status = 'pending'
+ORDER BY id ASC
+```
+
+### Batching Logic
+
+```javascript
+// Split items into batches of 25
+const batchSize = 25;
+const items = $input.all();
+const batches = [];
+
+for (let i = 0; i < items.length; i += batchSize) {
+  batches.push(items.slice(i, i + batchSize));
+}
+
+return batches.map(batch => ({ json: { practices: batch } }));
+```
+
+### URL Worker Trigger
+
+```javascript
+// HTTP Request node for each batch
+{
+  "method": "POST",
+  "url": "{{ $env.N8N_URL_WORKER_WEBHOOK }}",
+  "body": {
+    "job_id": "{{ $json.job_id }}",
+    "practices": "{{ $json.practices }}"
+  }
+}
+```
+
+## Error Handling
+
+If the dispatcher fails:
+
+1. Log error to `failed_jobs` table
+2. Set job status to `error`
+3. Send alert notification (optional)
+
+```javascript
+// Error handler node
+{
+  "errorMessage": "{{ $json.error.message }}",
+  "jobId": "{{ $json.job_id }}",
+  "timestamp": "{{ $now }}"
+}
+```
+
+## Configuration
+
+Environment variables required:
+
+```bash
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+
+# Worker Webhooks
+N8N_URL_WORKER_WEBHOOK=https://n8n.example.com/webhook/url-worker
+```
+
+## Monitoring
+
+Key metrics to track:
+
+- **Dispatch Time**: Time from webhook receipt to first worker call
+- **Batch Count**: Number of batches created per job
+- **Failure Rate**: Percentage of failed dispatcher calls
+- **Queue Depth**: Number of pending jobs
+
+## Testing
+
+Test the dispatcher locally:
+
+```bash
+curl -X POST https://your-n8n-instance.com/webhook/dispatcher \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+    "practice_count": 50
+  }'
+```
+
+## Next Steps
+
+
+
+
+  Configure the URL normalization worker
+
+
+
+  View job status in database
+
+
+

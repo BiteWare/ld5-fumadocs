@@ -1,0 +1,231 @@
+---
+title: 'URL Worker'
+description: 'URL normalization and validation'
+---
+
+# URL Worker
+
+## Purpose
+
+The URL Worker normalizes practice identifiers, validates URLs, and resolves domains to prepare for scraping.
+
+## Input
+
+Receives batches of practices from the Dispatcher:
+
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "practices": [
+    {
+      "id": 1,
+      "practice_identifier": "example-practice.com"
+    },
+    {
+      "id": 2,
+      "practice_identifier": "https://another-practice.com/about"
+    }
+  ]
+}
+```
+
+## Processing Steps
+
+
+  
+    Convert practice identifier to valid URL format
+    - Add `https://` if missing
+    - Remove trailing slashes
+    - Clean query parameters
+  
+  
+  
+    Check domain validity and accessibility
+    - DNS resolution
+    - HTTP status check
+    - Redirect following
+  
+  
+  
+    Gather basic URL information
+    - Domain name
+    - Final URL (after redirects)
+    - Response time
+  
+  
+  
+    Write results to Supabase
+    - Store `url_worker_payload`
+    - Set status to `url_complete`
+    - Trigger Scraper Worker
+  
+
+
+## Implementation
+
+### URL Normalization
+
+```javascript
+// Function node: Normalize URLs
+function normalizeUrl(identifier) {
+  let url = identifier.trim();
+  
+  // Add protocol if missing
+  if (!url.match(/^https?:\/\//)) {
+    url = 'https://' + url;
+  }
+  
+  // Remove trailing slash
+  url = url.replace(/\/$/, '');
+  
+  // Parse and clean
+  try {
+    const parsed = new URL(url);
+    return {
+      normalized: parsed.origin + parsed.pathname,
+      domain: parsed.hostname,
+      protocol: parsed.protocol
+    };
+  } catch (error) {
+    return { error: 'Invalid URL format' };
+  }
+}
+
+// Process each practice
+const practices = $input.all();
+return practices.map(practice => ({
+  json: {
+    practice_id: practice.json.id,
+    ...normalizeUrl(practice.json.practice_identifier)
+  }
+}));
+```
+
+### Domain Validation
+
+```javascript
+// HTTP Request node: Check domain
+{
+  "method": "HEAD",
+  "url": "{{ $json.normalized }}",
+  "timeout": 5000,
+  "options": {
+    "followRedirect": true,
+    "maxRedirects": 3
+  }
+}
+```
+
+### Supabase Update
+
+```javascript
+// Supabase node: Update practice
+{
+  "table": "job_practices",
+  "operation": "update",
+  "matchOn": ["id"],
+  "data": {
+    "id": "{{ $json.practice_id }}",
+    "url_worker_payload": {
+      "normalized_url": "{{ $json.normalized }}",
+      "domain": "{{ $json.domain }}",
+      "status_code": "{{ $json.statusCode }}",
+      "final_url": "{{ $json.finalUrl }}",
+      "processed_at": "{{ $now }}"
+    },
+    "status": "url_complete"
+  }
+}
+```
+
+## Output
+
+The `url_worker_payload` contains:
+
+```json
+{
+  "normalized_url": "https://example-practice.com",
+  "domain": "example-practice.com",
+  "status_code": 200,
+  "final_url": "https://www.example-practice.com",
+  "response_time_ms": 342,
+  "processed_at": "2025-01-15T10:30:00Z"
+}
+```
+
+## Error Handling
+
+Common errors and handling:
+
+| Error | Cause | Action |
+|-------|-------|--------|
+| Invalid URL | Malformed identifier | Mark practice as `error` |
+| DNS failure | Domain doesn't exist | Mark practice as `error` |
+| Timeout | Site unreachable | Retry up to 3 times |
+| 4xx/5xx status | HTTP error | Log warning, continue |
+
+```javascript
+// Error handler
+if ($json.error || $json.statusCode >= 400) {
+  return [{
+    json: {
+      practice_id: $json.practice_id,
+      status: 'error',
+      error_message: $json.error || `HTTP ${$json.statusCode}`
+    }
+  }];
+}
+```
+
+## Next Worker Trigger
+
+On success, automatically trigger the Scraper Worker:
+
+```javascript
+// HTTP Request node: Trigger scraper
+{
+  "method": "POST",
+  "url": "{{ $env.N8N_SCRAPER_WEBHOOK }}",
+  "body": {
+    "practice_id": "{{ $json.practice_id }}",
+    "url": "{{ $json.normalized_url }}"
+  }
+}
+```
+
+## Performance
+
+- **Batch Processing**: Handle 25 practices per execution
+- **Timeouts**: 5 second limit per URL check
+- **Retries**: Max 3 attempts for timeouts
+- **Rate Limiting**: 100ms delay between requests
+
+## Testing
+
+Test URL normalization:
+
+```bash
+curl -X POST https://your-n8n-instance.com/webhook/url-worker \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_id": "test-job",
+    "practices": [
+      {"id": 1, "practice_identifier": "example.com"},
+      {"id": 2, "practice_identifier": "https://test.com/about"}
+    ]
+  }'
+```
+
+## Next Steps
+
+
+
+
+  Configure web scraping
+
+
+
+  Learn about error recovery
+
+
+

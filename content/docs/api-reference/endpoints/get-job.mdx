@@ -1,0 +1,117 @@
+---
+title: 'Get Job Details'
+api: 'GET /api/jobs/{id}'
+description: 'Retrieve detailed information about a specific job including all practices'
+---
+
+## Request
+
+### Headers
+```
+Authorization: Bearer <supabase-token>
+```
+
+### Path Parameters
+
+  Job UUID
+
+
+## Response
+
+
+  Job metadata and practices
+  
+  
+    
+      Job UUID
+    
+    
+    
+      Name of the uploaded CSV file
+    
+    
+    
+      Total number of practices
+    
+    
+    
+      Number of completed practices
+    
+    
+    
+      `pending`, `running`, `completed`, or `error`
+    
+    
+    
+      Array of practice objects
+      
+      
+        
+          Practice ID
+        
+        
+        
+          Original URL or identifier
+        
+        
+        
+          `pending`, `url_complete`, `scraped`, `aggregated`, or `error`
+        
+        
+        
+          Error details if status is `error`
+        
+        
+        
+          Data from URL normalization worker
+        
+        
+        
+          Data from scraper worker
+        
+        
+        
+          Aggregated enrichment data
+        
+      
+    
+  
+
+
+### Example Response
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "original_filename": "practices.csv",
+  "total_practices": 2,
+  "completed_practices": 2,
+  "status": "completed",
+  "practices": [
+    {
+      "id": 1,
+      "practice_identifier": "https://example-practice.com",
+      "status": "aggregated",
+      "error_message": null,
+      "final_payload": {
+        "practice_name": "Example Practice",
+        "phone": "(555) 123-4567",
+        "address": "123 Main St"
+      }
+    }
+  ]
+}
+```
+
+## Example Request
+
+```bash
+curl -X GET http://localhost:3000/api/jobs/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN"
+```
+
+## Usage
+
+This endpoint is used for:
+- Frontend polling to track job progress
+- Displaying real-time practice status
+- Monitoring individual practice results
