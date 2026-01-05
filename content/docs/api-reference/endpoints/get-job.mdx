@@ -8,75 +8,37 @@ description: 'Retrieve detailed information about a specific job including all p
 
 ### Headers
 ```
-Authorization: Bearer <supabase-token>
+Authorization: Bearer {your-supabase-token}
 ```
 
 ### Path Parameters
 
-  Job UUID
-
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Job UUID |
 
 ## Response
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Job UUID |
+| `original_filename` | string | Name of the uploaded CSV file |
+| `total_practices` | number | Total number of practices |
+| `completed_practices` | number | Number of completed practices |
+| `status` | string | `pending`, `running`, `completed`, or `error` |
+| `practices` | array | Array of practice objects |
 
-  Job metadata and practices
-  
-  
-    
-      Job UUID
-    
-    
-    
-      Name of the uploaded CSV file
-    
-    
-    
-      Total number of practices
-    
-    
-    
-      Number of completed practices
-    
-    
-    
-      `pending`, `running`, `completed`, or `error`
-    
-    
-    
-      Array of practice objects
-      
-      
-        
-          Practice ID
-        
-        
-        
-          Original URL or identifier
-        
-        
-        
-          `pending`, `url_complete`, `scraped`, `aggregated`, or `error`
-        
-        
-        
-          Error details if status is `error`
-        
-        
-        
-          Data from URL normalization worker
-        
-        
-        
-          Data from scraper worker
-        
-        
-        
-          Aggregated enrichment data
-        
-      
-    
-  
+### Practice Object
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | number | Practice ID |
+| `practice_identifier` | string | Original URL or identifier |
+| `status` | string | `pending`, `url_complete`, `scraped`, `aggregated`, or `error` |
+| `error_message` | string or null | Error details if status is `error` |
+| `url_worker_payload` | object | Data from URL normalization worker |
+| `scraper_worker_payload` | object | Data from scraper worker |
+| `final_payload` | object | Aggregated enrichment data |
 
 ### Example Response
 ```json

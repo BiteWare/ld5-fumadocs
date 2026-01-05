@@ -31,35 +31,25 @@ Receives batches of practices from the Dispatcher:
 
 ## Processing Steps
 
+1. **URL Normalization**: Convert practice identifier to valid URL format
+   - Add `https://` if missing
+   - Remove trailing slashes
+   - Clean query parameters
 
-  
-    Convert practice identifier to valid URL format
-    - Add `https://` if missing
-    - Remove trailing slashes
-    - Clean query parameters
-  
-  
-  
-    Check domain validity and accessibility
-    - DNS resolution
-    - HTTP status check
-    - Redirect following
-  
-  
-  
-    Gather basic URL information
-    - Domain name
-    - Final URL (after redirects)
-    - Response time
-  
-  
-  
-    Write results to Supabase
-    - Store `url_worker_payload`
-    - Set status to `url_complete`
-    - Trigger Scraper Worker
-  
+2. **Domain Validation**: Check domain validity and accessibility
+   - DNS resolution
+   - HTTP status check
+   - Redirect following
 
+3. **Metadata Collection**: Gather basic URL information
+   - Domain name
+   - Final URL (after redirects)
+   - Response time
+
+4. **Supabase Update**: Write results to Supabase
+   - Store `url_worker_payload`
+   - Set status to `url_complete`
+   - Trigger Scraper Worker
 
 ## Implementation
 
@@ -218,14 +208,5 @@ curl -X POST https://your-n8n-instance.com/webhook/url-worker \
 
 ## Next Steps
 
-
-
-
-  Configure web scraping
-
-
-
-  Learn about error recovery
-
-
-
+- [Scraper Worker](/docs/workflows/scraper-worker) - Configure web scraping
+- [Error Handling](/docs/architecture/error-handling) - Learn about error recovery

@@ -22,34 +22,24 @@ Receives individual practices from URL Worker:
 
 ## Processing Steps
 
+1. **Web Fetching**: Retrieve HTML from the normalized URL
 
-  
-    Retrieve HTML from the normalized URL
-  
-  
-  
-    Parse HTML and extract relevant text content
-    - Remove scripts and styles
-    - Focus on main content areas
-    - Clean whitespace
-  
-  
-  
-    Use OpenAI to extract structured data
-    - Practice name
-    - Phone number
-    - Address
-    - Email
-    - Other metadata
-  
-  
-  
-    Write results to Supabase
-    - Store `scraper_worker_payload`
-    - Set status to `scraped`
-    - Trigger Aggregator Worker
-  
+2. **HTML Parsing**: Parse HTML and extract relevant text content
+   - Remove scripts and styles
+   - Focus on main content areas
+   - Clean whitespace
 
+3. **OpenAI Extraction**: Use OpenAI to extract structured data
+   - Practice name
+   - Phone number
+   - Address
+   - Email
+   - Other metadata
+
+4. **Supabase Update**: Write results to Supabase
+   - Store `scraper_worker_payload`
+   - Set status to `scraped`
+   - Trigger Aggregator Worker
 
 ## Implementation
 
@@ -279,14 +269,5 @@ curl -X POST https://your-n8n-instance.com/webhook/scraper \
 
 ## Next Steps
 
-
-
-
-  Combine data into final payload
-
-
-
-  Optimize prompt engineering
-
-
-
+- [Aggregator Worker](/docs/workflows/aggregator-worker) - Combine data into final payload
+- [Data Extraction](/docs/architecture/data-extraction) - Optimize prompt engineering

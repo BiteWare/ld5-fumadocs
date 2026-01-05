@@ -8,13 +8,14 @@ description: 'Download enriched data as a CSV file'
 
 ### Headers
 ```
-Authorization: Bearer <supabase-token>
+Authorization: Bearer {your-supabase-token}
 ```
 
 ### Path Parameters
 
-  Job UUID
-
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Job UUID |
 
 ## Response
 
@@ -72,7 +73,7 @@ Data is merged from two sources using the `extractPracticeData()` function:
 - Phone: enrichment → validation
 - All other fields: enrichment source
 
-See [Data Extraction](/architecture/data-extraction) for complete field priority and merging logic.
+See [Data Extraction](/docs/architecture/data-extraction) for complete field priority and merging logic.
 
 ## Example Request
 
@@ -89,6 +90,4 @@ This endpoint is used to:
 - Export enriched practice data for analysis
 - Integrate results into other systems
 
-
-  The export button is only enabled in the UI when the job status is `completed`.
-
+**Note:** The export button is only enabled in the UI when the job status is `completed`.

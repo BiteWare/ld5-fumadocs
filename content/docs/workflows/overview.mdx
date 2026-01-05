@@ -8,61 +8,24 @@ description: 'n8n workflow architecture for async batch processing'
 ## Overview
 LeadDesk 5 uses n8n to orchestrate asynchronous batch processing through a dispatcher and three specialized worker workflows.
 
-<img src="/images/workflow-diagram.png" alt="Workflow Architecture" />
-
 ## Workflow Components
 
-
-
-
-  Receives jobs and distributes practices to workers in batches
-
-
-
-  Normalizes and validates practice URLs
-
-
-
-  Extracts practice data using OpenAI
-
-
-
-  Combines data and produces final enriched payload
-
-
-
+| Workflow | Purpose |
+|----------|---------|
+| **Dispatcher** | Receives jobs and distributes practices to workers in batches |
+| **URL Worker** | Normalizes and validates practice URLs |
+| **Scraper Worker** | Extracts practice data using OpenAI |
+| **Aggregator** | Combines data and produces final enriched payload |
 
 ## Processing Flow
 
-
-  
-    Frontend calls POST `/api/jobs` with CSV file
-  
-  
-  
-    Backend triggers Dispatcher webhook with `job_id` and `practice_count`
-  
-  
-  
-    Dispatcher chunks practices into groups of 10-25 and triggers URL Worker
-  
-  
-  
-    URL Worker normalizes each practice URL and validates domains
-  
-  
-  
-    Scraper Worker fetches and extracts practice data using OpenAI
-  
-  
-  
-    Aggregator Worker combines all payloads into final enriched data
-  
-  
-  
-    Database triggers update job status to `completed`
-  
-
+1. Frontend calls POST `/api/jobs` with CSV file
+2. Backend triggers Dispatcher webhook with `job_id` and `practice_count`
+3. Dispatcher chunks practices into groups of 10-25 and triggers URL Worker
+4. URL Worker normalizes each practice URL and validates domains
+5. Scraper Worker fetches and extracts practice data using OpenAI
+6. Aggregator Worker combines all payloads into final enriched data
+7. Database triggers update job status to `completed`
 
 ## Status Transitions
 
@@ -118,22 +81,7 @@ N8N_AGGREGATOR_WEBHOOK=https://n8n.example.com/webhook/aggregator
 
 ## Next Steps
 
-
-
-
-  Configure the dispatcher workflow
-
-
-
-  Set up URL normalization
-
-
-
-  Configure OpenAI scraping
-
-
-
-  Set up data aggregation
-
-
-
+- [Dispatcher Workflow](/docs/workflows/dispatcher) - Configure the dispatcher workflow
+- [URL Worker](/docs/workflows/url-worker) - Set up URL normalization
+- [Scraper Worker](/docs/workflows/scraper-worker) - Configure OpenAI scraping
+- [Aggregator Worker](/docs/workflows/aggregator-worker) - Set up data aggregation

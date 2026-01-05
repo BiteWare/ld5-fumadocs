@@ -23,27 +23,11 @@ POST ${N8N_DISPATCHER_WEBHOOK}
 
 ## Workflow Steps
 
-
-  
-    Webhook receives job_id and practice_count from backend
-  
-  
-  
-    Set job status to `running` in Supabase
-  
-  
-  
-    Query all practices for the job from `job_practices` table
-  
-  
-  
-    Chunk practices into groups of 10-25 for parallel processing
-  
-  
-  
-    Call URL Worker webhook for each batch
-  
-
+1. Webhook receives job_id and practice_count from backend
+2. Set job status to `running` in Supabase
+3. Query all practices for the job from `job_practices` table
+4. Chunk practices into groups of 10-25 for parallel processing
+5. Call URL Worker webhook for each batch
 
 ## Implementation
 
@@ -152,14 +136,5 @@ curl -X POST https://your-n8n-instance.com/webhook/dispatcher \
 
 ## Next Steps
 
-
-
-
-  Configure the URL normalization worker
-
-
-
-  View job status in database
-
-
-
+- [URL Worker](/docs/workflows/url-worker) - Configure the URL normalization worker
+- [Database Schema](/docs/architecture/database-schema) - View job status in database

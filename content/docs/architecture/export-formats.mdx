@@ -9,21 +9,11 @@ description: 'CSV, Excel, and JSON export options for enriched practice data'
 
 LeadDesk 5 provides three export formats for enriched practice data, each suited for different use cases.
 
-
-
-
-  Standard comma-separated format for spreadsheets
-
-
-
-  Formatted .xlsx workbook with styling
-
-
-
-  Raw structured data for programmatic access
-
-
-
+| Format | Description |
+|--------|-------------|
+| **CSV** | Standard comma-separated format for spreadsheets |
+| **Excel** | Formatted .xlsx workbook with styling |
+| **JSON** | Raw structured data for programmatic access |
 
 ---
 
@@ -185,15 +175,13 @@ GET /api/jobs/[id]/export-json
 
 | Feature | CSV | Excel | JSON |
 |---------|-----|-------|------|
-| **Human Readable** | ✓ | ✓✓ | △ |
-| **Machine Readable** | ✓ | ✓ | ✓✓ |
-| **File Size** | Small | Medium | Large |
-| **Formatting** | None | ✓✓ | None |
-| **Nested Data** | Flattened | Flattened | Preserved |
-| **Compatibility** | Universal | Microsoft/LibreOffice | Programming |
-| **Processing Speed** | Fast | Medium | Fast |
-
-Legend: ✓✓ = Excellent, ✓ = Good, △ = Limited
+| Human Readable | Good | Excellent | Limited |
+| Machine Readable | Good | Good | Excellent |
+| File Size | Small | Medium | Large |
+| Formatting | None | Excellent | None |
+| Nested Data | Flattened | Flattened | Preserved |
+| Compatibility | Universal | Microsoft/LibreOffice | Programming |
+| Processing Speed | Fast | Medium | Fast |
 
 ---
 
@@ -257,22 +245,7 @@ The only differences are:
 
 ## Related Documentation
 
-
-
-
-  Learn how practice data is extracted and merged
-
-
-
-  CSV export endpoint documentation
-
-
-
-  Excel export endpoint documentation
-
-
-
-  JSON export endpoint documentation
-
-
-
+- [Data Extraction](/docs/architecture/data-extraction) - Learn how practice data is extracted and merged
+- [Export Job (CSV)](/docs/api-reference/endpoints/export-job) - CSV export endpoint documentation
+- [Export Excel](/docs/api-reference/endpoints/export-excel) - Excel export endpoint documentation
+- [Export JSON](/docs/api-reference/endpoints/export-json) - JSON export endpoint documentation

@@ -147,7 +147,7 @@ async function submitToLeadDesk(identifier: string, data?: any) {
 ```
 
 ### React Component
-```typescript
+```tsx
 import { useState } from 'react';
 
 function LeadDeskSubmit() {
@@ -231,7 +231,7 @@ curl -X POST \
 
 ### Webhook URL
 Configured via environment variable:
-```env
+```
 LEADDESK_DISPATCHER_WEBHOOK_URL=https://n8n.example.com/webhook/leaddesk-dispatcher
 ```
 
@@ -269,7 +269,7 @@ LEADDESK_DISPATCHER_WEBHOOK_URL=https://n8n.example.com/webhook/leaddesk-dispatc
 
 ## Environment Variables
 
-```env
+```
 LEADDESK_DISPATCHER_WEBHOOK_URL=https://n8n.example.com/webhook/leaddesk-dispatcher
 ```
 
@@ -279,25 +279,9 @@ Required for endpoint to function. Returns 503 if not configured.
 
 ## Related Endpoints
 
-
-
-
-  Search and submit via LD5 pipeline
-
-
-
-  Upload CSV for batch processing
-
-
-
-  View all user jobs
-
-
-
-  Fetch user emails
-
-
-
+- [Search and Submit Practice](/docs/api-reference/endpoints/search-practices) - Search and submit via LD5 pipeline
+- [Create Job](/docs/api-reference/endpoints/create-job) - Upload CSV for batch processing
+- [List Jobs](/docs/api-reference/endpoints/list-jobs) - View all user jobs
 
 ---
 

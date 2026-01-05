@@ -8,46 +8,22 @@ description: 'Retrieve all enrichment jobs for the authenticated user'
 
 ### Headers
 ```
-Authorization: Bearer <supabase-token>
+Authorization: Bearer {your-supabase-token}
 ```
 
 ## Response
 
 Returns an array of job objects sorted by creation date (newest first).
 
-
-  Array of job objects
-  
-  
-    
-      Job UUID
-    
-    
-    
-      Name of the uploaded CSV file
-    
-    
-    
-      Total number of practices in the job
-    
-    
-    
-      Number of practices that have completed processing
-    
-    
-    
-      Job status: `pending`, `running`, `completed`, or `error`
-    
-    
-    
-      ISO 8601 timestamp
-    
-    
-    
-      ISO 8601 timestamp
-    
-  
-
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Job UUID |
+| `original_filename` | string | Name of the uploaded CSV file |
+| `total_practices` | number | Total number of practices in the job |
+| `completed_practices` | number | Number of practices that have completed processing |
+| `status` | string | Job status: `pending`, `running`, `completed`, or `error` |
+| `created_at` | string | ISO 8601 timestamp |
+| `updated_at` | string | ISO 8601 timestamp |
 
 ### Example Response
 ```json

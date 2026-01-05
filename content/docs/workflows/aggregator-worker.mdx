@@ -21,35 +21,25 @@ Receives practice ID from Scraper Worker:
 
 ## Processing Steps
 
+1. **Fetch Practice Data**: Query Supabase for complete practice record
+   - URL worker payload
+   - Scraper worker payload
+   - Original identifier
 
-  
-    Query Supabase for complete practice record
-    - URL worker payload
-    - Scraper worker payload
-    - Original identifier
-  
-  
-  
-    Combine all data sources into unified structure
-    - Resolve conflicts
-    - Fill missing fields
-    - Normalize formats
-  
-  
-  
-    Add computed fields and metadata
-    - Data quality score
-    - Completeness percentage
-    - Confidence levels
-  
-  
-  
-    Write final payload to Supabase
-    - Store `final_payload`
-    - Set status to `aggregated`
-    - Trigger job completion check
-  
+2. **Data Merging**: Combine all data sources into unified structure
+   - Resolve conflicts
+   - Fill missing fields
+   - Normalize formats
 
+3. **Quality Scoring**: Add computed fields and metadata
+   - Data quality score
+   - Completeness percentage
+   - Confidence levels
+
+4. **Supabase Update**: Write final payload to Supabase
+   - Store `final_payload`
+   - Set status to `aggregated`
+   - Trigger job completion check
 
 ## Implementation
 
@@ -253,10 +243,10 @@ if (!data.practice_name && !data.phone) {
 
 Database triggers automatically handle job completion:
 
-1. When practice status → `aggregated`
+1. When practice status changes to `aggregated`
 2. Increment `completed_practices` count
-3. If `completed_practices` == `total_practices`
-4. Set job status → `completed`
+3. If `completed_practices` equals `total_practices`
+4. Set job status to `completed`
 
 No manual workflow trigger needed!
 
@@ -290,22 +280,6 @@ curl -X POST https://your-n8n-instance.com/webhook/aggregator \
 
 ## Next Steps
 
-
-
-
-  Download enriched CSV
-
-
-
-  Understand data structure
-
-
-
-  Monitor enrichment quality
-
-
-
-  Review complete workflow
-
-
-
+- [Export Job Results](/docs/api-reference/endpoints/export-job) - Download enriched CSV
+- [Data Extraction](/docs/architecture/data-extraction) - Understand data structure
+- [Workflow Overview](/docs/workflows/overview) - Review complete workflow

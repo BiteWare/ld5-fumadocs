@@ -5,33 +5,28 @@ description: 'Set up your development environment for LeadDesk 5'
 
 ## Prerequisites
 
-
-  Before getting started, ensure you have:
-  - Node.js version 19 or higher
-  - Git installed
-  - Access to Supabase project credentials
-  - n8n instance (for workflow testing)
-
+Before getting started, ensure you have:
+- Node.js version 19 or higher
+- Git installed
+- Access to Supabase project credentials
+- n8n instance (for workflow testing)
 
 ## Environment Setup
 
-
-
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/zyris/leaddesk5.git
 cd leaddesk5
 ```
 
-
-
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-
-
+### 3. Configure Environment Variables
 
 Create a `.env.local` file in the root directory:
 
@@ -48,8 +43,7 @@ LD5_DISPATCHER_WEBHOOK_URL=https://your-n8n-instance.com/webhook/dispatcher
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-
-
+### 4. Set Up Database
 
 Run the Supabase migrations:
 
@@ -64,16 +58,13 @@ This will create:
 - Database triggers
 - Indexes
 
-
-
+### 5. Start Development Server
 
 ```bash
 npm run dev
 ```
 
 Your app will be available at `http://localhost:3000`
-
-
 
 ## Database Management
 
@@ -160,74 +151,38 @@ Recommended extensions:
 
 ## Documentation Development
 
-To preview these docs locally:
+This documentation site is built with [Fumadocs](https://fumadocs.vercel.app/).
 
-
-
-
-```bash
-npm i -g mint
-```
-
-
-
+To preview docs locally:
 
 ```bash
-cd LeadDeskDocs
-```
-
-
-
-
-```bash
-mint dev
+# From the docs directory
+npm install
+npm run dev
 ```
 
 Documentation will be available at `http://localhost:3000`
 
-
-
 ## Troubleshooting
 
+### Supabase Connection Failed
+Verify your Supabase credentials in `.env.local` and ensure the project is active.
 
-  
-    Verify your Supabase credentials in `.env.local` and ensure the project is active.
-  
+### Workflow Not Triggering
+Check that:
+- n8n workflows are active
+- Webhook URLs are correct
+- n8n instance is accessible from your dev environment
 
-  
-    Check that:
-    - n8n workflows are active
-    - Webhook URLs are correct
-    - n8n instance is accessible from your dev environment
-  
+### API Returns 401 Unauthorized
+Ensure you're using a valid Supabase JWT token and RLS policies are properly configured.
 
-  
-    Ensure you're using a valid Supabase JWT token and RLS policies are properly configured.
-  
-
-  
-    Change the dev port: `npm run dev -- -p 3001`
-  
-
+### Port Already In Use
+Change the dev port: `npm run dev -- -p 3001`
 
 ## Next Steps
 
-
-
-
-  Understand the Next.js structure
-
-
-
-  Explore API route implementation
-
-
-
-  Learn the data model
-
-
-
-  Test API endpoints
-
-
-
+- [Frontend Architecture](/docs/architecture/frontend-architecture) - Understand the Next.js structure
+- [Backend Architecture](/docs/architecture/backend-architecture) - Explore API route implementation
+- [Database Schema](/docs/architecture/database-schema) - Learn the data model
+- [API Reference](/docs/api-reference/introduction) - Test API endpoints

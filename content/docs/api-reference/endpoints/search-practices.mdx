@@ -119,7 +119,7 @@ async function searchAndSubmitPractice(identifier: string) {
 ```
 
 ### React Component
-```typescript
+```tsx
 import { useState } from 'react';
 
 function PracticeSearch() {
@@ -226,7 +226,7 @@ async function trackJobProgress(jobId: string) {
 
 Use `useJobPolling` hook for automatic updates:
 
-```typescript
+```tsx
 import { useJobPolling } from '@/hooks/use-job-polling';
 
 function JobTracker({ jobId }: { jobId: string }) {
@@ -247,25 +247,10 @@ function JobTracker({ jobId }: { jobId: string }) {
 
 ## Related Endpoints
 
-
-
-
-  Upload CSV for batch processing
-
-
-
-  Submit to external dispatcher
-
-
-
-  Retrieve job information
-
-
-
-  View all user jobs
-
-
-
+- [Create Job](/docs/api-reference/endpoints/create-job) - Upload CSV for batch processing
+- [Submit to LeadDesk](/docs/api-reference/endpoints/submit-leaddesk) - Submit to external dispatcher
+- [Get Job Details](/docs/api-reference/endpoints/get-job) - Retrieve job information
+- [List Jobs](/docs/api-reference/endpoints/list-jobs) - View all user jobs
 
 ---
 

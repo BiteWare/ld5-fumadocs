@@ -10,24 +10,22 @@ Upload a CSV file containing practice identifiers or URLs.
 
 ### Headers
 ```
-Authorization: Bearer <supabase-token>
+Authorization: Bearer {your-supabase-token}
 Content-Type: multipart/form-data
 ```
 
 ### Body Parameters
 
-  CSV file containing practice identifiers (one per row)
-
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file` | file | Yes | CSV file containing practice identifiers (one per row) |
 
 ## Response
 
-
-  UUID of the created job
-
-
-
-  Number of practices in the uploaded CSV
-
+| Field | Type | Description |
+|-------|------|-------------|
+| `job_id` | string | UUID of the created job |
+| `total_practices` | number | Number of practices in the uploaded CSV |
 
 ### Example Response
 ```json
