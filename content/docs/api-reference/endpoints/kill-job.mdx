@@ -1,0 +1,127 @@
+---
+title: 'Kill Job'
+api: 'POST /api/kill-job'
+description: 'Cancel a running job'
+---
+
+## Overview
+
+Cancels a running job by setting its status to `error`. Use this when you need to stop a job that's in progress - for example, if you uploaded the wrong CSV or need to free up processing capacity.
+
+## Request
+
+### Headers
+```
+Content-Type: application/json
+Authorization: Bearer <supabase-token>
+```
+
+### Body Parameters
+
+<ParamField body="job_id" type="string" required>
+  UUID of the job to cancel
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:3000/api/kill-job \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN" \
+  -d '{
+    "job_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message
+</ResponseField>
+
+### Success Response
+```json
+{
+  "success": true,
+  "message": "Job cancelled"
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": "Job not found or already completed"
+}
+```
+
+## Behavior
+
+### What This Endpoint Does
+
+1. Sets `enrichment_jobs.status` to `error`
+2. Sets `enrichment_jobs.error_message` to `"Cancelled by user"`
+3. Returns success response
+
+### What This Endpoint Does NOT Do
+
+- **Does not stop in-flight n8n executions**: If workers are currently processing practices, they will continue until complete. However, the job status change means:
+  - Frontend will show the job as cancelled
+  - Database triggers won't update job status to `completed` even if all practices finish
+  
+- **Does not change practice statuses**: Individual practices remain in their current state (`pending`, `url_complete`, etc.)
+
+- **Does not prevent redo**: You can still call `/api/redo-job` after killing to retry error practices
+
+## Use Cases
+
+### Cancel Wrong Upload
+```javascript
+// User realizes they uploaded wrong file
+await fetch('/api/kill-job', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ job_id: wrongJobId })
+});
+
+// Then create new job with correct file
+await uploadCorrectCsv();
+```
+
+### Free Processing Capacity
+```javascript
+// Large job taking too long, need to process something else first
+await fetch('/api/kill-job', {
+  method: 'POST',
+  body: JSON.stringify({ job_id: lowPriorityJobId })
+});
+
+// Process high priority job
+await createHighPriorityJob();
+
+// Later, redo the cancelled job
+await fetch('/api/redo-job', {
+  method: 'POST',
+  body: JSON.stringify({ job_id: lowPriorityJobId })
+});
+```
+
+## Error Codes
+
+| Status | Error | Cause |
+|--------|-------|-------|
+| 400 | `Missing job_id` | No job_id in request body |
+| 401 | `Unauthorized` | Missing or invalid auth token |
+| 403 | `Forbidden` | Job belongs to different user |
+| 404 | `Job not found` | Invalid job_id |
+| 409 | `Job already completed` | Can't cancel a finished job |
+
+## See Also
+
+- [Redo Job](/docs/api-reference/endpoints/redo-job) - Retry failed practices
+- [Get Job](/docs/api-reference/endpoints/get-job) - Check job status
+- [Error Handling](/docs/architecture/error-handling) - How errors propagate

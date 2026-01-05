@@ -1,0 +1,208 @@
+---
+title: 'Redo Job'
+api: 'POST /api/redo-job'
+description: 'Retry failed practices in a job'
+---
+
+## Overview
+
+Retries only the failed practices in a job. This is one of LD5's key improvements over LD4 - you don't have to re-process an entire batch just because a few practices failed.
+
+## Request
+
+### Headers
+```
+Content-Type: application/json
+Authorization: Bearer <supabase-token>
+```
+
+### Body Parameters
+
+<ParamField body="job_id" type="string" required>
+  UUID of the job to retry
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:3000/api/redo-job \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN" \
+  -d '{
+    "job_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="retried_count" type="number">
+  Number of practices that were reset for retry
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message
+</ResponseField>
+
+### Success Response
+```json
+{
+  "success": true,
+  "retried_count": 5,
+  "message": "5 practices queued for retry"
+}
+```
+
+### No Practices to Retry
+```json
+{
+  "success": true,
+  "retried_count": 0,
+  "message": "No failed practices to retry"
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": "Job not found"
+}
+```
+
+## Behavior
+
+### What This Endpoint Does
+
+1. Queries all practices with `status = 'error'`
+2. Resets their status to `pending`
+3. Clears their `error_message`
+4. Updates job status to `running` (if it was `error`)
+5. Re-triggers the Dispatcher webhook with only the reset practices
+6. Returns count of retried practices
+
+### What This Endpoint Does NOT Do
+
+- **Does not touch successful practices**: Practices with `status = 'aggregated'` are untouched
+- **Does not reset intermediate states**: Practices in `url_complete` or `scraped` continue from where they were
+- **Does not re-process already processed data**: If a practice reached `url_complete` then failed at scraping, only scraping is retried (the URL data is preserved)
+
+### State Transitions
+
+```
+Before redo-job:
+  Practice 1: aggregated (no change)
+  Practice 2: aggregated (no change)  
+  Practice 3: error → pending (reset)
+  Practice 4: error → pending (reset)
+  Practice 5: aggregated (no change)
+  
+  Job: error → running
+
+After workers complete:
+  Practice 3: pending → url_complete → scraped → aggregated
+  Practice 4: pending → url_complete → scraped → aggregated
+  
+  Job: running → completed (if all succeed)
+       running → error (if any fail again)
+```
+
+## Use Cases
+
+### Retry After Transient Failures
+
+```javascript
+// Check job status
+const job = await fetch(`/api/jobs/${jobId}`).then(r => r.json());
+
+if (job.status === 'error') {
+  // Some practices failed - retry them
+  const result = await fetch('/api/redo-job', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_id: jobId })
+  }).then(r => r.json());
+  
+  console.log(`Retrying ${result.retried_count} practices`);
+}
+```
+
+### Retry After Fixing External Issues
+
+```javascript
+// OpenAI was rate-limited, wait and retry
+await sleep(60000); // Wait 60 seconds
+
+await fetch('/api/redo-job', {
+  method: 'POST',
+  body: JSON.stringify({ job_id: jobId })
+});
+```
+
+### Check Before Retry
+
+```javascript
+// First, see what failed
+const job = await fetch(`/api/jobs/${jobId}`).then(r => r.json());
+const failedPractices = job.practices.filter(p => p.status === 'error');
+
+console.log('Failed practices:');
+failedPractices.forEach(p => {
+  console.log(`  ${p.practice_identifier}: ${p.error_message}`);
+});
+
+// Decide whether to retry based on error types
+const transientErrors = failedPractices.filter(p => 
+  p.error_message.includes('timeout') || 
+  p.error_message.includes('rate_limit')
+);
+
+if (transientErrors.length > 0) {
+  await fetch('/api/redo-job', { 
+    method: 'POST',
+    body: JSON.stringify({ job_id: jobId })
+  });
+}
+```
+
+## Error Codes
+
+| Status | Error | Cause |
+|--------|-------|-------|
+| 400 | `Missing job_id` | No job_id in request body |
+| 401 | `Unauthorized` | Missing or invalid auth token |
+| 403 | `Forbidden` | Job belongs to different user |
+| 404 | `Job not found` | Invalid job_id |
+| 500 | `Dispatcher webhook failed` | n8n unreachable |
+
+## Important Notes
+
+### Partial Preservation
+
+If a practice failed at the scraper stage, its `url_worker_payload` is preserved. When retried:
+- The URL Worker sees the practice is already `url_complete` (or will re-validate)
+- Only the failed stage is re-attempted
+- Successfully extracted data is not lost
+
+### Multiple Retries
+
+You can call redo-job multiple times on the same job. Each time:
+- Only current `error` practices are reset
+- Previously successful practices remain `aggregated`
+- There's no limit on retry attempts
+
+### Job Status After Redo
+
+The job status changes to `running` when redo is triggered. It will become:
+- `completed` if all practices (including retried ones) succeed
+- `error` if any practices fail again
+
+## See Also
+
+- [Kill Job](/docs/api-reference/endpoints/kill-job) - Cancel a running job
+- [Get Job](/docs/api-reference/endpoints/get-job) - Check job and practice status
+- [Error Handling](/docs/architecture/error-handling) - Understanding error states
+- [LD4 to LD5 Evolution](/docs/architecture/evolution) - Why selective retry matters

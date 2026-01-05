@@ -1,0 +1,202 @@
+---
+title: 'LD4 to LD5 Evolution'
+description: 'Why we rebuilt LeadDesk and what problems it solved'
+---
+
+# LD4 to LD5 Evolution
+
+This document explains the architectural decisions behind LeadDesk 5 and why we moved away from LD4's design.
+
+## The Problem with LD4
+
+LeadDesk 4 used a **batch-oriented architecture** where the entire CSV was processed as a single unit. This created several operational pain points:
+
+### 1. No Individual Practice Retry
+
+In LD4, if 3 practices out of 100 failed, you had two options:
+- Re-run the entire batch (wasting API calls and time on the 97 successful ones)
+- Manually extract failures and create a new CSV
+
+There was no way to say "retry just these 3 practices."
+
+### 2. No Granular Progress Visibility
+
+LD4 reported progress at the batch level only:
+- "Job started"
+- "Job completed" or "Job failed"
+
+You couldn't see:
+- Which specific practice was currently being processed
+- How many had succeeded vs failed
+- Where in the pipeline a practice was stuck
+
+### 3. Opaque Failure Modes
+
+When something went wrong, debugging was difficult:
+- Error messages were generic ("Batch failed")
+- No way to see which workflow step failed
+- No intermediate state preserved for inspection
+
+### 4. All-or-Nothing Export
+
+If 95% of practices succeeded but 5% failed, LD4 would either:
+- Block export entirely until all completed
+- Export with missing data and no indication of which rows failed
+
+---
+
+## The LD5 Solution: Practice-Level Tracking
+
+LD5 introduces a two-table architecture that tracks every practice individually:
+
+```
+enrichment_jobs (batch level)
+    │
+    └── job_practices (individual practice level)
+            ├── practice 1: status = aggregated
+            ├── practice 2: status = scraped
+            ├── practice 3: status = error
+            └── practice 4: status = pending
+```
+
+### Key Architectural Decisions
+
+#### Decision 1: Separate Job and Practice Tables
+
+**Why:** Enables independent lifecycle management for each practice.
+
+**Trade-off:** More database rows, slightly more complex queries. Worth it for the operational flexibility.
+
+```sql
+-- LD4: Single table, batch-level only
+CREATE TABLE batch_jobs (
+    id uuid PRIMARY KEY,
+    csv_data jsonb,  -- entire CSV stored as blob
+    status text,
+    result jsonb     -- all-or-nothing result
+);
+
+-- LD5: Two tables, practice-level tracking
+CREATE TABLE enrichment_jobs (...);     -- batch metadata
+CREATE TABLE job_practices (...);       -- individual practice state
+```
+
+#### Decision 2: Status State Machine Per Practice
+
+**Why:** Each practice moves through a defined state machine independently:
+
+```
+pending → url_complete → scraped → aggregated
+    ↓           ↓            ↓
+  error       error        error
+```
+
+This means:
+- Practice 1 can be `aggregated` while Practice 2 is still `pending`
+- Failed practices don't block successful ones
+- You can see exactly where each practice is in the pipeline
+
+#### Decision 3: JSONB Payloads Per Workflow Stage
+
+**Why:** Each worker stores its output in a dedicated JSONB column:
+
+| Column | Written By | Contains |
+|--------|------------|----------|
+| `url_worker_payload` | URL Worker | Normalized URL, domain, response time |
+| `scraper_worker_payload` | Scraper Worker | Extracted practice data |
+| `final_payload` | Aggregator | Merged, enriched final data |
+
+This design enables:
+- **Debugging:** See exactly what each worker produced
+- **Partial Recovery:** If scraper fails, URL data is preserved
+- **Audit Trail:** Full provenance of every field
+
+#### Decision 4: Database Triggers for Status Rollup
+
+**Why:** The job-level status (`enrichment_jobs.status`) updates automatically based on practice states.
+
+```sql
+-- Trigger logic (simplified)
+IF all practices are 'aggregated' THEN
+    SET job.status = 'completed'
+ELSIF any practice is 'error' AND all practices are terminal THEN
+    SET job.status = 'error'
+ELSIF any practice is NOT 'pending' THEN
+    SET job.status = 'running'
+END IF
+```
+
+This means:
+- Frontend just polls job status, doesn't need to count practices
+- Status is always consistent (no race conditions)
+- Workers don't need to coordinate job-level state
+
+#### Decision 5: Webhook-Triggered Workers via n8n
+
+**Why:** Decouples the frontend/backend from the processing pipeline.
+
+- Backend creates job and fires webhook
+- n8n orchestrates all async processing
+- Workers call back to Supabase to update practice state
+- Frontend polls for status changes
+
+This architecture allows:
+- Workers to scale independently
+- Easy retry of individual practices
+- Pipeline modifications without frontend changes
+
+---
+
+## What LD5 Enables
+
+### Selective Retry
+```
+POST /api/redo-job
+{ "job_id": "..." }
+```
+Only re-processes practices with `status = 'error'`. Successful practices are untouched.
+
+### Real-Time Progress
+Frontend can show:
+- "47/100 practices completed"
+- "3 errors, 50 in progress"
+- Per-practice status in a table
+
+### Partial Export
+Export all `aggregated` practices immediately, even if some are still `pending` or `error`.
+
+### Debugging
+For any failed practice, you can see:
+- Original input (`practice_identifier`)
+- URL worker output (if it got that far)
+- Scraper output (if it got that far)
+- Exact error message and which stage failed
+
+---
+
+## Migration Considerations
+
+If you're familiar with LD4, here's how concepts map:
+
+| LD4 Concept | LD5 Equivalent |
+|-------------|----------------|
+| Batch ID | `enrichment_jobs.id` |
+| CSV rows | `job_practices` records |
+| Batch status | Computed from practice statuses via trigger |
+| Results blob | `final_payload` per practice |
+| Error log | `error_message` per practice + `failed_jobs` table |
+
+---
+
+## Summary
+
+LD5's practice-level tracking architecture was designed to solve real operational pain points from LD4:
+
+| Problem | LD4 | LD5 |
+|---------|-----|-----|
+| Retry granularity | Entire batch | Individual practice |
+| Progress visibility | Batch-level only | Per-practice status |
+| Failure debugging | Generic errors | Stage-specific errors with preserved state |
+| Export flexibility | All-or-nothing | Partial export supported |
+
+The added complexity of the two-table design pays for itself in operational flexibility and debuggability.

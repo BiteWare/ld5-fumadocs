@@ -1,0 +1,188 @@
+---
+title: 'Check Job Status'
+api: 'GET /api/check-job-status'
+description: 'Get practice counts grouped by status'
+---
+
+## Overview
+
+Returns a summary of practice statuses for a job without fetching all practice details. Useful for lightweight progress monitoring when you don't need full practice data.
+
+## Request
+
+### Headers
+```
+Authorization: Bearer <supabase-token>
+```
+
+### Query Parameters
+
+<ParamField query="job_id" type="string" required>
+  UUID of the job to check
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X GET "http://localhost:3000/api/check-job-status?job_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_SUPABASE_TOKEN"
+```
+
+## Response
+
+<ResponseField name="job_id" type="string">
+  The job UUID
+</ResponseField>
+
+<ResponseField name="job_status" type="string">
+  Current job status: `pending`, `running`, `completed`, or `error`
+</ResponseField>
+
+<ResponseField name="total_practices" type="number">
+  Total number of practices in the job
+</ResponseField>
+
+<ResponseField name="status_counts" type="object">
+  Count of practices in each status
+</ResponseField>
+
+### Success Response
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_status": "running",
+  "total_practices": 100,
+  "status_counts": {
+    "pending": 20,
+    "url_complete": 15,
+    "scraped": 10,
+    "aggregated": 50,
+    "error": 5
+  }
+}
+```
+
+### Completed Job
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_status": "completed",
+  "total_practices": 100,
+  "status_counts": {
+    "pending": 0,
+    "url_complete": 0,
+    "scraped": 0,
+    "aggregated": 100,
+    "error": 0
+  }
+}
+```
+
+### Job with Errors
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_status": "error",
+  "total_practices": 100,
+  "status_counts": {
+    "pending": 0,
+    "url_complete": 0,
+    "scraped": 0,
+    "aggregated": 92,
+    "error": 8
+  }
+}
+```
+
+## Use Cases
+
+### Lightweight Polling
+
+```javascript
+// More efficient than GET /api/jobs/{id} when you just need progress
+async function pollJobProgress(jobId) {
+  const response = await fetch(`/api/check-job-status?job_id=${jobId}`);
+  const data = await response.json();
+  
+  const completed = data.status_counts.aggregated + data.status_counts.error;
+  const progress = (completed / data.total_practices) * 100;
+  
+  console.log(`Progress: ${progress.toFixed(1)}%`);
+  console.log(`  Completed: ${data.status_counts.aggregated}`);
+  console.log(`  Errors: ${data.status_counts.error}`);
+  console.log(`  In progress: ${data.status_counts.url_complete + data.status_counts.scraped}`);
+  
+  return data.job_status;
+}
+
+// Poll until done
+let status;
+do {
+  status = await pollJobProgress(jobId);
+  if (status === 'running') {
+    await sleep(3000);
+  }
+} while (status === 'running');
+```
+
+### Progress Bar Calculation
+
+```javascript
+function calculateProgress(statusCounts, total) {
+  // Terminal states count as 100% for that practice
+  const terminal = statusCounts.aggregated + statusCounts.error;
+  
+  // Intermediate states count as partial progress
+  const urlComplete = statusCounts.url_complete * 0.33;
+  const scraped = statusCounts.scraped * 0.66;
+  
+  const weightedProgress = terminal + urlComplete + scraped;
+  return (weightedProgress / total) * 100;
+}
+```
+
+### Monitoring Dashboard
+
+```javascript
+// Fetch status for multiple jobs efficiently
+async function getDashboardStats(jobIds) {
+  const stats = await Promise.all(
+    jobIds.map(id => 
+      fetch(`/api/check-job-status?job_id=${id}`).then(r => r.json())
+    )
+  );
+  
+  return stats.map(s => ({
+    id: s.job_id,
+    status: s.job_status,
+    progress: ((s.status_counts.aggregated + s.status_counts.error) / s.total_practices * 100).toFixed(1),
+    errors: s.status_counts.error
+  }));
+}
+```
+
+## Comparison with GET /api/jobs/{id}
+
+| Aspect | check-job-status | get-job |
+|--------|------------------|---------|
+| Response size | ~200 bytes | ~10KB+ (depends on practices) |
+| Practice details | No | Yes (full array) |
+| Error messages | No | Yes |
+| Payloads | No | Yes |
+| Use case | Progress monitoring | Detailed inspection |
+
+Use `check-job-status` for polling and dashboards. Use `get-job` when you need to display practice details or debug specific failures.
+
+## Error Codes
+
+| Status | Error | Cause |
+|--------|-------|-------|
+| 400 | `Missing job_id` | No job_id in query params |
+| 401 | `Unauthorized` | Missing or invalid auth token |
+| 403 | `Forbidden` | Job belongs to different user |
+| 404 | `Job not found` | Invalid job_id |
+
+## See Also
+
+- [Get Job](/docs/api-reference/endpoints/get-job) - Full job details with practices
+- [List Jobs](/docs/api-reference/endpoints/list-jobs) - List all user jobs

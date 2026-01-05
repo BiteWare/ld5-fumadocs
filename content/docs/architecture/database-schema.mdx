@@ -5,6 +5,80 @@ description: 'Supabase tables, RLS policies, and triggers'
 
 # LeadDesk 5 – Supabase Architecture
 
+## Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    users ||--o{ enrichment_jobs : "owns"
+    enrichment_jobs ||--o{ job_practices : "contains"
+    
+    users {
+        uuid id PK
+        text email
+        text password_hash
+        text name
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    enrichment_jobs {
+        uuid id PK
+        uuid user_id FK
+        text original_filename
+        int total_practices
+        int completed_practices
+        text status
+        text error_message
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    job_practices {
+        bigserial id PK
+        uuid job_id FK
+        text practice_identifier
+        text status
+        jsonb url_worker_payload
+        jsonb scraper_worker_payload
+        jsonb final_payload
+        text error_message
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    failed_jobs {
+        bigserial id PK
+        text failed_workflow_id
+        text failed_workflow_name
+        text failed_execution_id
+        text error_message
+        text error_stack
+        jsonb original_input_data
+        text status
+        timestamp logged_at
+    }
+```
+
+## Relationship Explanation
+
+### users → enrichment_jobs (One-to-Many)
+- Each user can create multiple jobs
+- Jobs are scoped to users via RLS policies
+- `enrichment_jobs.user_id` references `users.id`
+
+### enrichment_jobs → job_practices (One-to-Many)
+- Each job contains multiple practices (one per CSV row)
+- Practices cannot exist without a parent job
+- `job_practices.job_id` references `enrichment_jobs.id`
+- Deleting a job should cascade-delete its practices
+
+### failed_jobs (Standalone)
+- Not foreign-keyed to other tables
+- Used for logging n8n workflow failures
+- Can reference job_id in `original_input_data` but not enforced
+
+---
+
 ## Tables
 
 ---
@@ -126,8 +200,167 @@ Database schema defined in: `migrations/001_create_batch_tables.sql`
 ---
 
 ## Indexes
-- job_practices(job_id)
-- job_practices(status)
-- enrichment_jobs(user_id)
-- enrichment_jobs(created_at)
-- job_practices(job_id, status) WHERE status='aggregated'
+
+| Index | Purpose |
+|-------|---------|
+| `job_practices(job_id)` | Fast lookup of practices by job |
+| `job_practices(status)` | Filter practices by processing state |
+| `enrichment_jobs(user_id)` | RLS and user job listing |
+| `enrichment_jobs(created_at)` | Sort jobs by creation date |
+| `job_practices(job_id, status) WHERE status='aggregated'` | Partial index for export queries |
+
+### Index Rationale
+
+**Why partial index on `aggregated` status?**
+
+Export queries only need completed practices:
+```sql
+SELECT * FROM job_practices 
+WHERE job_id = ? AND status = 'aggregated'
+```
+
+A partial index avoids indexing `pending`, `url_complete`, `scraped`, and `error` rows that exports never query.
+
+---
+
+## Trigger Flow Diagram
+
+```mermaid
+flowchart TD
+    subgraph "Practice Status Change"
+        A[Worker updates job_practices.status] --> B{New status?}
+        B -->|url_complete/scraped| C[No trigger action]
+        B -->|aggregated/error| D[update_completed_practices_counter]
+    end
+    
+    subgraph "Job Counter Update"
+        D --> E[INCREMENT completed_practices]
+        E --> F{completed == total?}
+        F -->|Yes| G[update_job_status]
+        F -->|No| H[Job stays 'running']
+    end
+    
+    subgraph "Job Status Update"
+        G --> I{Any practice errors?}
+        I -->|Yes| J[status = 'error']
+        I -->|No| K[status = 'completed']
+    end
+    
+    subgraph "First Practice Start"
+        L[Practice leaves 'pending'] --> M[update_job_status]
+        M --> N[status = 'running']
+    end
+```
+
+### Trigger Behavior Details
+
+**`update_completed_practices_counter()`**
+```sql
+-- Pseudocode
+AFTER UPDATE ON job_practices
+WHEN (NEW.status IN ('aggregated', 'error') AND OLD.status NOT IN ('aggregated', 'error'))
+BEGIN
+    UPDATE enrichment_jobs 
+    SET completed_practices = completed_practices + 1
+    WHERE id = NEW.job_id;
+END
+```
+
+**`update_job_status()`**
+```sql
+-- Pseudocode
+AFTER UPDATE ON job_practices
+BEGIN
+    -- Set to 'running' when first practice starts
+    IF OLD.status = 'pending' AND NEW.status != 'pending' THEN
+        UPDATE enrichment_jobs SET status = 'running' WHERE id = NEW.job_id AND status = 'pending';
+    END IF;
+    
+    -- Check for completion
+    IF NEW.status IN ('aggregated', 'error') THEN
+        UPDATE enrichment_jobs
+        SET status = CASE
+            WHEN completed_practices = total_practices THEN
+                CASE WHEN EXISTS (SELECT 1 FROM job_practices WHERE job_id = NEW.job_id AND status = 'error')
+                     THEN 'error' ELSE 'completed' END
+            ELSE status
+        END
+        WHERE id = NEW.job_id;
+    END IF;
+END
+```
+
+---
+
+## JSONB Payload Schemas
+
+### `url_worker_payload`
+
+```json
+{
+  "normalized_url": "https://example-practice.com",
+  "domain": "example-practice.com",
+  "status_code": 200,
+  "final_url": "https://www.example-practice.com",
+  "response_time_ms": 342,
+  "processed_at": "2025-01-15T10:30:00Z"
+}
+```
+
+### `scraper_worker_payload`
+
+```json
+{
+  "practice_name": "Example Medical Practice",
+  "phone": "(555) 123-4567",
+  "email": "contact@example-practice.com",
+  "address": "123 Main Street, City, ST 12345",
+  "specialty": "Family Medicine",
+  "provider_count": 5,
+  "office_hours": "Mon-Fri 8AM-5PM",
+  "scraped_at": "2025-01-15T10:32:00Z"
+}
+```
+
+### `final_payload`
+
+```json
+{
+  "practice_identifier": "https://example-practice.com",
+  "practice_name": "Example Medical Practice",
+  "website": "https://www.example-practice.com",
+  "phone": "(555) 123-4567",
+  "email": "contact@example-practice.com",
+  "address": "123 Main Street, City, ST 12345",
+  "specialty": "Family Medicine",
+  "provider_count": 5,
+  "office_hours": "Mon-Fri 8AM-5PM",
+  "domain": "example-practice.com",
+  "status_code": 200,
+  "response_time_ms": 342,
+  "url_processed_at": "2025-01-15T10:30:00Z",
+  "scraped_at": "2025-01-15T10:32:00Z",
+  "enrichment_metadata": {
+    "completeness_percentage": 100,
+    "quality_score": "high",
+    "fields_filled": 5,
+    "fields_missing": 0,
+    "enriched_at": "2025-01-15T10:33:00Z"
+  }
+}
+```
+
+### Why JSONB?
+
+1. **Schema flexibility:** Workers can add fields without migrations
+2. **Partial updates:** Each worker writes only its payload column
+3. **Debugging:** Full provenance of every field across pipeline stages
+4. **Query capability:** Can still query/filter on JSONB fields when needed
+
+---
+
+## See Also
+
+- [System Architecture](/docs/architecture/system-overview) - How data flows through the system
+- [Error Handling](/docs/architecture/error-handling) - How errors are stored and surfaced
+- [Data Extraction](/docs/architecture/data-extraction) - How final_payload fields are merged
