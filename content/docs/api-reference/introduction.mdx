@@ -58,8 +58,8 @@ All API responses use JSON format (except CSV exports).
 ## Workflow
 
 1. **Upload CSV** - POST `/api/jobs` with a CSV file
-2. **Monitor Progress** - Poll GET `/api/jobs/{id}` every 3 seconds
-3. **Export Results** - GET `/api/jobs/{id}/export` when status is `completed`
+2. **Monitor Progress** - Poll GET `/api/jobs/[id]` every 3 seconds
+3. **Export Results** - GET `/api/jobs/[id]/export` when status is `completed`
 
 ## Job Statuses
 
