@@ -17,9 +17,9 @@ Authorization: Bearer <supabase-token>
 
 ### Query Parameters
 
-<ParamField query="job_id" type="string" required>
-  UUID of the job to check
-</ParamField>
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `job_id` | string | Yes | UUID of the job to check |
 
 ### Example Request
 
@@ -30,21 +30,12 @@ curl -X GET "http://localhost:3000/api/check-job-status?job_id=550e8400-e29b-41d
 
 ## Response
 
-<ResponseField name="job_id" type="string">
-  The job UUID
-</ResponseField>
-
-<ResponseField name="job_status" type="string">
-  Current job status: `pending`, `running`, `completed`, or `error`
-</ResponseField>
-
-<ResponseField name="total_practices" type="number">
-  Total number of practices in the job
-</ResponseField>
-
-<ResponseField name="status_counts" type="object">
-  Count of practices in each status
-</ResponseField>
+| Field | Type | Description |
+|-------|------|-------------|
+| `job_id` | string | The job UUID |
+| `job_status` | string | Current job status: `pending`, `running`, `completed`, or `error` |
+| `total_practices` | number | Total number of practices in the job |
+| `status_counts` | object | Count of practices in each status |
 
 ### Success Response
 ```json

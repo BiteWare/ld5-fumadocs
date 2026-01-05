@@ -18,9 +18,9 @@ Authorization: Bearer <supabase-token>
 
 ### Body Parameters
 
-<ParamField body="job_id" type="string" required>
-  UUID of the job to retry
-</ParamField>
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `job_id` | string | Yes | UUID of the job to retry |
 
 ### Example Request
 
@@ -35,17 +35,11 @@ curl -X POST http://localhost:3000/api/redo-job \
 
 ## Response
 
-<ResponseField name="success" type="boolean">
-  Whether the operation succeeded
-</ResponseField>
-
-<ResponseField name="retried_count" type="number">
-  Number of practices that were reset for retry
-</ResponseField>
-
-<ResponseField name="message" type="string">
-  Status message
-</ResponseField>
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the operation succeeded |
+| `retried_count` | number | Number of practices that were reset for retry |
+| `message` | string | Status message |
 
 ### Success Response
 ```json
@@ -96,18 +90,18 @@ curl -X POST http://localhost:3000/api/redo-job \
 Before redo-job:
   Practice 1: aggregated (no change)
   Practice 2: aggregated (no change)  
-  Practice 3: error → pending (reset)
-  Practice 4: error → pending (reset)
+  Practice 3: error -> pending (reset)
+  Practice 4: error -> pending (reset)
   Practice 5: aggregated (no change)
   
-  Job: error → running
+  Job: error -> running
 
 After workers complete:
-  Practice 3: pending → url_complete → scraped → aggregated
-  Practice 4: pending → url_complete → scraped → aggregated
+  Practice 3: pending -> url_complete -> scraped -> aggregated
+  Practice 4: pending -> url_complete -> scraped -> aggregated
   
-  Job: running → completed (if all succeed)
-       running → error (if any fail again)
+  Job: running -> completed (if all succeed)
+       running -> error (if any fail again)
 ```
 
 ## Use Cases

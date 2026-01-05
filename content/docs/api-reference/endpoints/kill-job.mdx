@@ -18,9 +18,9 @@ Authorization: Bearer <supabase-token>
 
 ### Body Parameters
 
-<ParamField body="job_id" type="string" required>
-  UUID of the job to cancel
-</ParamField>
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `job_id` | string | Yes | UUID of the job to cancel |
 
 ### Example Request
 
@@ -35,13 +35,10 @@ curl -X POST http://localhost:3000/api/kill-job \
 
 ## Response
 
-<ResponseField name="success" type="boolean">
-  Whether the operation succeeded
-</ResponseField>
-
-<ResponseField name="message" type="string">
-  Status message
-</ResponseField>
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the operation succeeded |
+| `message` | string | Status message |
 
 ### Success Response
 ```json
