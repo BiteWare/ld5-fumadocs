@@ -1,0 +1,14 @@
+{
+  "title": "Architecture",
+  "pages": [
+    "system-overview",
+    "frontend-architecture",
+    "backend-architecture",
+    "database-schema",
+    "workflow-engine",
+    "data-extraction",
+    "error-handling",
+    "export-formats",
+    "evolution"
+  ]
+}

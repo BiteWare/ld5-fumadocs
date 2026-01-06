@@ -1,0 +1,10 @@
+{
+  "title": "Workflows",
+  "pages": [
+    "overview",
+    "dispatcher",
+    "url-worker",
+    "scraper-worker",
+    "aggregator-worker"
+  ]
+}

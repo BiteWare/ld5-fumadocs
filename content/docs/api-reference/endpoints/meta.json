@@ -1,0 +1,16 @@
+{
+  "title": "Endpoints",
+  "pages": [
+    "create-job",
+    "list-jobs",
+    "get-job",
+    "check-job-status",
+    "export-job",
+    "kill-job",
+    "redo-job",
+    "search-practices",
+    "submit-leaddesk",
+    "export-excel",
+    "export-json"
+  ]
+}
